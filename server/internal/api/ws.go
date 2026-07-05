@@ -23,8 +23,12 @@ func newUpgrader(cfg *config.Config) *websocket.Upgrader {
 				return true
 			}
 			origin := r.Header.Get("Origin")
+			// Programmatic clients (e.g. the bitrok CLI) don't send an Origin
+			// header. They authenticate via Bearer JWT, already validated by
+			// AuthMiddleware before the WS upgrade. Accept them; only enforce
+			// Origin for browser-initiated connections (CSRF protection).
 			if origin == "" {
-				return false
+				return true
 			}
 			// Only trust configured domain, never r.Host (attacker-controlled)
 			return origin == "https://"+cfg.Domain || origin == "http://"+cfg.Domain
