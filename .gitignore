@@ -1,0 +1,60 @@
+# ── Dependencies ──
+node_modules/
+web/node_modules/
+
+# ── Environment / Secrets ──
+.env
+.env.*
+!.env.example
+web/.env
+web/.env.*
+!web/.env.example
+
+# ── Build outputs ──
+bin/
+dist/
+# Root-level binaries from bare `go build` (without -o). Anchored to repo
+# root so we never ignore a legit subdir of the same name.
+/bitrok
+/bitrok-server
+web/.next/
+web/out/
+web/dist/
+
+# ── Generated code ──
+web/generated/prisma
+
+# ── Databases ──
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ── Go ──
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# ── Logs ──
+*.log
+
+# ── OS files ──
+.DS_Store
+Thumbs.db
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Project-specific ──
+.ai/
+trok.md
+.opencode/*
+.next/*
