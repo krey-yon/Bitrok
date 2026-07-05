@@ -88,10 +88,16 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		headers["X-Forwarded-For"] = r.RemoteAddr
 	}
-	if r.TLS != nil {
-		headers["X-Forwarded-Proto"] = "https"
-	} else {
-		headers["X-Forwarded-Proto"] = "http"
+	// Respect X-Forwarded-Proto from the trusted reverse proxy (Coolify/Traefik/nginx).
+	// They terminate TLS and set this header to the original client protocol.
+	// Only fall back to r.TLS when no proxy is in front (direct connection / dev),
+	// otherwise backends doing HTTP→HTTPS redirects would infinite-loop.
+	if proto := headers["X-Forwarded-Proto"]; proto == "" {
+		if r.TLS != nil {
+			headers["X-Forwarded-Proto"] = "https"
+		} else {
+			headers["X-Forwarded-Proto"] = "http"
+		}
 	}
 	headers["X-Forwarded-Host"] = r.Host
 
