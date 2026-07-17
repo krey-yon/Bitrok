@@ -237,6 +237,52 @@ func (s *SQLite) LogRequest(ctx context.Context, tunnelID, method, path string, 
 	return err
 }
 
+// ListLogs returns a bounded recent slice of request logs plus the user-scoped
+// total count. Results are ordered newest-first. limit is clamped to [1, 200].
+// The query joins tunnels so TunnelName is populated and rows are scoped by
+// tunnels.user_id (so a user can never see another user's traffic).
+func (s *SQLite) ListLogs(ctx context.Context, userID string, limit int) (*api.LogListResponse, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	var total int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM tunnel_logs l JOIN tunnels t ON t.id = l.tunnel_id WHERE t.user_id = ?`, userID,
+	).Scan(&total); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT l.id, l.tunnel_id, t.name, l.method, l.path, l.status, l.latency_ms, l.bytes_in, l.bytes_out, l.ts
+		FROM tunnel_logs l
+		JOIN tunnels t ON t.id = l.tunnel_id
+		WHERE t.user_id = ?
+		ORDER BY l.ts DESC
+		LIMIT ?`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	logs := make([]api.TunnelLog, 0, limit)
+	for rows.Next() {
+		var l api.TunnelLog
+		if err := rows.Scan(&l.ID, &l.TunnelID, &l.TunnelName, &l.Method, &l.Path, &l.Status, &l.LatencyMs, &l.BytesIn, &l.BytesOut, &l.TS); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &api.LogListResponse{Total: total, Logs: logs}, nil
+}
+
 // Ping checks database connectivity.
 func (s *SQLite) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)

@@ -18,6 +18,7 @@ type Store interface {
 	DeleteTunnel(ctx context.Context, userID, id string) error
 
 	LogRequest(ctx context.Context, tunnelID, method, path string, status, latencyMs, bytesIn, bytesOut int) error
+	ListLogs(ctx context.Context, userID string, limit int) (*api.LogListResponse, error)
 
 	Ping(ctx context.Context) error
 

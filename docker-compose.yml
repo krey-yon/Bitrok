@@ -1,0 +1,38 @@
+# Coolify / Docker Compose deployment for bitrok-server
+# ────────────────────────────────────────────────────
+# Web dashboard (web/) is deployed separately to Vercel — not included here.
+#
+# Usage:
+#   1. Copy .env.example → .env and fill in secrets
+#   2. Push to your Coolify-connected repo, or paste this into Coolify's compose editor
+#   3. Coolify will build the Dockerfile and deploy bitrok-server
+
+services:
+  bitrok-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bitrok-server
+    restart: unless-stopped
+    ports:
+      - "${BITROK_PORT:-8080}:${BITROK_PORT:-8080}"
+    environment:
+      BITROK_PORT: "${BITROK_PORT:-8080}"
+      BITROK_DOMAIN: "${BITROK_DOMAIN:-bitrok.tech}"
+      BITROK_DB_PATH: /data/bitrok.db
+      BITROK_LOG_LEVEL: "${BITROK_LOG_LEVEL:-info}"
+      BITROK_AUTH_TOKENS: "${BITROK_AUTH_TOKENS}"
+      BITROK_JWT_SECRET: "${BITROK_JWT_SECRET}"
+      BITROK_JWT_ISSUER: "${BITROK_JWT_ISSUER:-bitrok}"
+      BITROK_JWT_AUDIENCE: "${BITROK_JWT_AUDIENCE:-bitrok-cli}"
+    volumes:
+      - bitrok-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BITROK_PORT:-8080}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  bitrok-data:

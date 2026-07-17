@@ -1,0 +1,62 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: bitrok
+    main: ./cli/cmd/bitrok
+    binary: bitrok
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+  - id: bitrok-server
+    main: ./server/cmd/bitrok-server
+    binary: bitrok-server
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: bitrok
+    builds: [bitrok]
+    format: tar.gz
+    name_template: "bitrok_{{ .Os }}_{{ .Arch }}"
+  - id: bitrok-server
+    builds: [bitrok-server]
+    format: tar.gz
+    name_template: "bitrok-server_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - name: bitrok
+    repository:
+      owner: yourusername
+      name: homebrew-bitrok
+    homepage: "https://github.com/yourusername/bitrok"
+    description: "Deterministic self-hosted tunnels CLI"
+    install: |
+      bin.install "bitrok"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

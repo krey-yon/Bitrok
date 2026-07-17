@@ -82,6 +82,9 @@ func NewRouter(cfg *config.Config, st store.Store, hub *relay.Hub) (*chi.Mux, *r
 		th := &TunnelHandler{Store: st, Hub: hub, Config: cfg}
 		th.Register(r)
 
+		lh := &LogHandler{Store: st}
+		lh.Register(r)
+
 		// WebSocket tunnel endpoint
 		r.Get("/tunnel/{id}/connect", WSConnectHandler(cfg, st, hub))
 	})
