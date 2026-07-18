@@ -160,6 +160,37 @@
 }
 
 @media (min-width: 640px) { .section-shell { padding-inline: 2rem; } }
+
+/* Keep the complete hero conversion path visible on common laptop screens. */
+@media (min-width: 1024px) and (max-height: 900px) {
+  .hero-stage {
+    min-height: calc(100svh - 4rem);
+    padding-block: 2rem;
+  }
+  .hero-stage .signal-label { margin-bottom: 1.1rem; }
+  .hero-title {
+    font-size: clamp(4.25rem, 5.35vw, 5.25rem);
+    line-height: .9;
+  }
+  .hero-copy {
+    margin-top: 1.25rem;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  .hero-actions { margin-top: 1.5rem; }
+  .hero-benefits { margin-top: 1.25rem; }
+  .hero-visual {
+    transform: scale(.94);
+    transform-origin: right center;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 720px) {
+  .hero-title { font-size: clamp(3.8rem, 4.8vw, 4.65rem); }
+  .hero-benefits { display: none; }
+  .hero-visual { transform: scale(.88); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   svg animate, svg animateMotion, svg animateTransform { display: none; }

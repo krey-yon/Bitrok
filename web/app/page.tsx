@@ -34,25 +34,25 @@ export default function Home() {
           <div className="absolute inset-0 bg-hero-gradient" aria-hidden />
           <div className="absolute inset-0 bg-grid [mask-image:linear-gradient(to_bottom,#000,transparent_88%)]" aria-hidden />
           <div className="absolute inset-0 bg-noise" aria-hidden />
-          <div className="section-shell relative grid min-h-[calc(100svh-4rem)] min-w-0 items-center gap-14 py-16 sm:py-20 lg:grid-cols-[1.02fr_.98fr] lg:py-24">
+          <div className="hero-stage section-shell relative grid min-h-[calc(100svh-4rem)] min-w-0 items-center gap-10 py-12 sm:py-14 lg:grid-cols-[1.08fr_.92fr] lg:py-16">
             <div className="min-w-0 max-w-2xl">
               <div className="signal-label mb-7 animate-fade-in">Deterministic tunnels for local services</div>
-              <h1 className="max-w-full text-balance text-[clamp(2.7rem,12vw,6.6rem)] font-semibold leading-[.93] tracking-[-.058em] animate-slide-up sm:text-[clamp(3.15rem,7vw,6.6rem)] sm:leading-[.91] sm:tracking-[-.065em]">
+              <h1 className="hero-title max-w-full text-balance text-[clamp(2.7rem,12vw,5.7rem)] font-semibold leading-[.93] tracking-[-.058em] animate-slide-up sm:text-[clamp(3.15rem,6vw,5.7rem)] sm:leading-[.91] sm:tracking-[-.06em]">
                 Your backend can live <span className="relative inline-block text-accent"><span className="relative z-10">anywhere.</span><svg className="absolute -bottom-2 left-0 h-3 w-full" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden><path d="M3 10C92 2 267 2 397 8" fill="none" stroke="var(--secondary)" strokeWidth="4" strokeLinecap="round" /></svg></span>
               </h1>
-              <p className="mt-7 max-w-xl text-pretty text-base leading-7 text-muted-foreground animate-slide-up [animation-delay:80ms] sm:mt-8 sm:text-lg sm:leading-8">
+              <p className="hero-copy mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground animate-slide-up [animation-delay:80ms] sm:text-lg sm:leading-8">
                 Give a local API, WebSocket game, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
               </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row animate-slide-up [animation-delay:140ms]">
+              <div className="hero-actions mt-7 flex flex-col gap-3 sm:flex-row animate-slide-up [animation-delay:140ms]">
                 <Link href="/register" className={buttonClassName({ variant: "accent", size: "lg", className: "sm:min-w-44" })}>Claim Your URL <ArrowRight className="size-4" aria-hidden /></Link>
                 <Link href="#how-it-works" className={buttonClassName({ variant: "ghost", size: "lg" })}>See the 30-second setup</Link>
               </div>
-              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+              <div className="hero-benefits mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
                 {['Stable across restarts', 'HTTP + WebSockets', 'Self-hostable'].map((item) => <span key={item} className="inline-flex items-center gap-2"><Check className="size-3.5 text-accent" aria-hidden />{item}</span>)}
               </div>
             </div>
 
-            <div className="relative mx-auto min-w-0 w-full max-w-2xl overflow-hidden sm:overflow-visible lg:ml-auto animate-slide-up [animation-delay:180ms]">
+            <div className="hero-visual relative mx-auto hidden min-w-0 w-full max-w-2xl overflow-hidden lg:ml-auto lg:block lg:overflow-visible animate-slide-up [animation-delay:180ms]">
               <div className="absolute -inset-8 rounded-full bg-accent/10 blur-3xl" aria-hidden />
               <div className="relative overflow-hidden rounded-[1.35rem] border border-border bg-card shadow-[0_28px_90px_rgb(0_0_0/18%)]">
                 <div className="flex h-11 items-center justify-between border-b border-hairline px-4">
