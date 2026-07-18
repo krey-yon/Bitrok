@@ -2,15 +2,10 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * TerminalPanel — the faux terminal window.
+ * TerminalPanel — the faux terminal window with scanline effect.
  *
- * A flat, hairline-bordered surface with a mono header strip (three dots
- * + optional path/title) and a mono body. This is the onecli.sh hero
- * device and the home for the gateway-log aesthetic across the app.
- *
- * Use `lines` for static content, or children for composed bodies.
- * `tone="dim"` drops the body to a slightly recessed bg for contrast
- * against the header.
+ * Glassmorphism surface with animated scanline overlay. The header has
+ * three dots + optional path/title. Body is mono.
  */
 export function TerminalPanel({
   title,
@@ -28,7 +23,7 @@ export function TerminalPanel({
   return (
     <div
       className={cn(
-        "terminal overflow-hidden",
+        "terminal terminal-scanlines overflow-hidden",
         className,
       )}
     >
@@ -58,8 +53,7 @@ export function TerminalPanel({
 }
 
 /**
- * TerminalLine — one row in a gateway log. Mono, optional status glyph,
- * optional dim label prefix. Renders as a grid row for crisp alignment.
+ * TerminalLine — one row in a gateway log.
  */
 export function TerminalLine({
   label,

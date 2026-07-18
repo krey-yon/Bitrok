@@ -5,8 +5,8 @@ import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * CopyButton — copies `text` to the clipboard on click, then shows a check
- * for ~1.4s. A small affordance for the install command chip. Client-only.
+ * CopyButton — copies `text` to clipboard, shows a check for ~1.4s.
+ * Glass surface with accent glow on hover.
  */
 export function CopyButton({
   text,
@@ -23,7 +23,7 @@ export function CopyButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch {
-      /* clipboard unavailable — silently no-op */
+      /* clipboard unavailable */
     }
   };
 
@@ -34,8 +34,8 @@ export function CopyButton({
       aria-label={copied ? "Copied" : "Copy to clipboard"}
       className={cn(
         "inline-flex size-7 items-center justify-center rounded-[calc(var(--radius)*0.6)]",
-        "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]",
-        "cursor-pointer transition-colors duration-200 ease-[var(--ease-bitrok)]",
+        "text-muted-foreground hover:text-accent hover:bg-accent/[0.08]",
+        "cursor-pointer transition-all duration-200 ease-[var(--ease-bitrok)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       )}

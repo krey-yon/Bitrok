@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Check, KeyRound, TerminalSquare, UserRound } from "lucide-react";
+import { AuthShell } from "@/app/components/auth-shell";
 import { Button } from "@/components/ui/button";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { Logo } from "@/components/ui/logo";
 import { Spinner } from "@/components/ui/spinner";
-import { StatusGlyph } from "@/components/ui/status-glyph";
-import { TerminalPanel, TerminalLine } from "@/components/ui/terminal";
 
 type SessionData = { user?: { email?: string; name?: string } } | null;
 
@@ -16,148 +13,32 @@ function CliAuthContent() {
   const searchParams = useSearchParams();
   const state = searchParams.get("state");
   const callback = searchParams.get("callback");
-
   const [session, setSession] = useState<SessionData>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [authorizing, setAuthorizing] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/auth/get-session")
-      .then((r) => r.json())
-      .then((data) => {
-        setSession(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  // Session loaded but missing → redirect to sign-in. Done in an effect
-  // (not during render) to satisfy react-hooks/immutability.
-  useEffect(() => {
-    if (loading || session) return;
-    const returnUrl = encodeURIComponent(
-      `/cli-auth?state=${state || ""}&callback=${encodeURIComponent(callback || "")}`,
-    );
-    window.location.href = `/login?returnUrl=${returnUrl}`;
-  }, [loading, session, state, callback]);
+  useEffect(() => { fetch("/api/auth/get-session").then((response) => response.json()).then((data) => { setSession(data); setLoading(false); }).catch(() => setLoading(false)); }, []);
+  useEffect(() => { if (loading || session) return; const returnUrl = encodeURIComponent(`/cli-auth?state=${state || ""}&callback=${encodeURIComponent(callback || "")}`); window.location.href = `/login?returnUrl=${returnUrl}`; }, [loading, session, state, callback]);
 
   const handleAuthorize = async () => {
-    if (!state) return;
-    setAuthorizing(true);
-    try {
-      const res = await fetch("/api/cli-auth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state }),
-      });
-      const data = await res.json();
-      if (data.token && callback) {
-        window.location.href = `${callback}?token=${encodeURIComponent(data.token)}&state=${encodeURIComponent(state)}`;
-      } else if (data.error) {
-        setError(data.error);
-        setAuthorizing(false);
-      }
-    } catch {
-      setError("Failed to authorize. Please try again.");
-      setAuthorizing(false);
-    }
+    if (!state || !callback) { setError("This authorization request is incomplete. Return to the CLI and run bitrok login again."); return; }
+    setAuthorizing(true); setError("");
+    try { const response = await fetch("/api/cli-auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) }); const data = await response.json(); if (data.token) window.location.href = `${callback}?token=${encodeURIComponent(data.token)}&state=${encodeURIComponent(state)}`; else { setError(data.error || "Authorization failed. Run bitrok login again."); setAuthorizing(false); } }
+    catch { setError("The authorization server could not be reached. Check your connection and try again."); setAuthorizing(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-full flex items-center justify-center">
-        <p className="text-sm text-muted font-mono">loading…</p>
-      </div>
-    );
-  }
+  if (loading || !session) return <div className="flex min-h-full items-center justify-center" role="status"><Spinner /> <span className="ml-2 text-sm text-muted-foreground">{loading ? "Checking session…" : "Redirecting to sign in…"}</span></div>;
 
-  if (!session) {
-    return (
-      <div className="min-h-full flex items-center justify-center">
-        <p className="text-sm text-muted font-mono">redirecting to sign in…</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative min-h-full flex items-center justify-center px-6 py-16 overflow-hidden">
-      <div
-        className="absolute inset-0 bg-starfield [mask-image:radial-gradient(60%_50%_at_50%_50%,#000,transparent)] opacity-60"
-        aria-hidden
-      />
-      <div className="relative w-full max-w-sm text-center">
-        <div className="flex justify-center mb-4">
-          <Link href="/">
-            <Logo />
-          </Link>
-        </div>
-        <Eyebrow ornament="·">authorize cli</Eyebrow>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight mb-1">
-          Authorize CLI.
-        </h1>
-        <p className="text-sm text-muted mb-8">
-          Allow the bitrok CLI to access your account?
-        </p>
-
-        <TerminalPanel title="session" className="mb-8 text-left">
-          <TerminalLine status={<StatusGlyph variant="active" pulse />}>
-            <span className="text-foreground truncate">
-              {session.user?.email || session.user?.name || "Unknown"}
-            </span>
-          </TerminalLine>
-        </TerminalPanel>
-
-        {error && (
-          <p className="mb-6 flex items-center justify-center gap-2 text-sm text-danger">
-            <StatusGlyph variant="danger" /> {error}
-          </p>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <Button
-            className="w-full"
-            arrow={!authorizing}
-            disabled={authorizing}
-            onClick={handleAuthorize}
-          >
-            {authorizing ? (
-              <>
-                <Spinner /> authorizing
-              </>
-            ) : (
-              "Authorize"
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full"
-            onClick={() => window.close()}
-          >
-            Cancel
-          </Button>
-        </div>
-
-        <p className="mt-8 text-xs text-muted font-mono">
-          this generates an api token for cli access
-        </p>
-      </div>
+  return <AuthShell eyebrow="CLI authorization" title="Connect this terminal?" description="Approve a short-lived credential so the Bitrok CLI can create and run tunnels for your account." asideTitle="Your browser is the trust boundary." asideBody="The CLI receives a scoped token only after you confirm the request from an authenticated Bitrok session.">
+    <div className="space-y-3 rounded-xl border border-hairline bg-background/65 p-4">
+      <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent"><UserRound className="size-4" aria-hidden /></div><div className="min-w-0"><div className="text-xs text-muted-foreground">Signed in as</div><div className="truncate text-sm font-medium">{session.user?.email || session.user?.name || "Unknown account"}</div></div><Check className="ml-auto size-4 text-success" aria-hidden /></div>
+      <div className="flex items-center gap-3 border-t border-hairline pt-3"><div className="flex size-9 items-center justify-center rounded-lg bg-secondary/10 text-secondary"><TerminalSquare className="size-4" aria-hidden /></div><div className="min-w-0"><div className="text-xs text-muted-foreground">Requesting access</div><div className="truncate font-mono text-xs" title={callback || undefined}>{callback || "Bitrok CLI callback missing"}</div></div></div>
     </div>
-  );
+    <div className="mt-5 flex gap-3 rounded-lg border border-warning/25 bg-warning/8 p-4 text-sm"><KeyRound className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden /><p>This grants CLI access to your tunnel configuration. Approve only if you started <code className="font-mono">bitrok login</code>.</p></div>
+    {error && <p role="alert" aria-live="polite" className="mt-5 text-sm text-danger">{error}</p>}
+    <div className="mt-6 grid gap-3 sm:grid-cols-2"><Button variant="ghost" onClick={() => window.close()}>Cancel</Button><Button variant="accent" arrow={!authorizing} disabled={authorizing} onClick={handleAuthorize}>{authorizing ? <><Spinner /> Authorizing…</> : "Authorize CLI"}</Button></div>
+  </AuthShell>;
 }
 
-export default function CliAuthPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-full flex items-center justify-center">
-          <p className="text-sm text-muted font-mono">loading…</p>
-        </div>
-      }
-    >
-      <CliAuthContent />
-    </Suspense>
-  );
-}
+export default function CliAuthPage() { return <Suspense fallback={<div className="flex min-h-full items-center justify-center" role="status">Loading…</div>}><CliAuthContent /></Suspense>; }

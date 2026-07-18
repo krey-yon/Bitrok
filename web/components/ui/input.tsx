@@ -1,13 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Input — underline-style field, terminal-cosmic.
- *
- * Borderless box; the bottom hairline brightens to the foreground on
- * focus. Mono placeholders so hints read as terminal prompts. Optional
- * <Label> primitive renders the small mono uppercase eyebrow.
- */
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -16,11 +9,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       ref={ref}
       type={type ?? "text"}
       className={cn(
-        "w-full bg-transparent border-0 border-b border-hairline",
-        "py-2.5 text-sm text-foreground",
-        "placeholder:text-muted placeholder:font-mono placeholder:text-xs",
-        "outline-none transition-colors duration-200 ease-[var(--ease-bitrok)]",
-        "focus:border-foreground",
+        "w-full h-12 rounded-[var(--radius)] border border-input bg-card/70 px-4 text-[15px] text-foreground shadow-[0_1px_0_rgb(255_255_255/4%)_inset]",
+        "placeholder:text-muted-foreground/65 transition-[border-color,background-color,box-shadow] duration-200 ease-[var(--ease-bitrok)]",
+        "hover:border-foreground/25 focus-visible:border-accent focus-visible:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:shadow-[0_0_0_4px_var(--accent-glow)]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
@@ -30,19 +21,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = "Input";
 
-const Label = React.forwardRef<
-  HTMLLabelElement,
-  React.LabelHTMLAttributes<HTMLLabelElement>
->(({ className, ...props }, ref) => (
-  <label
-    ref={ref}
-    className={cn(
-      "font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground",
-      className,
-    )}
-    {...props}
-  />
-));
+const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
+  ({ className, ...props }, ref) => (
+    <label ref={ref} className={cn("block text-sm font-medium text-foreground", className)} {...props} />
+  ),
+);
 Label.displayName = "Label";
 
 export { Input, Label };

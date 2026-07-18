@@ -5,9 +5,9 @@ import type { ComponentProps } from "react";
 
 /**
  * ThemeProvider — class-based dark/light via next-themes.
- * Dark is the default (matches the premium-dark direction); users can
- * toggle. Replaces the previous inert `dark` class + prefers-color-scheme
- * approach, which offered no user override.
+ * Light is the default; users can switch to dark and keep their preference.
+ * Replaces the previous inert theme class + prefers-color-scheme approach,
+ * which offered no user override.
  */
 export function ThemeProvider({
   children,
@@ -16,7 +16,7 @@ export function ThemeProvider({
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"
+      defaultTheme="light"
       enableSystem={false}
       disableTransitionOnChange
       {...props}

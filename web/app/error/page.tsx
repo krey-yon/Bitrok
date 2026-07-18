@@ -1,142 +1,29 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { Button } from "@/components/ui/button";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { Logo } from "@/components/ui/logo";
-import { StatusGlyph } from "@/components/ui/status-glyph";
+import { ArrowRight, CircleAlert, ExternalLink } from "lucide-react";
+import { AuthShell } from "@/app/components/auth-shell";
+import { buttonClassName } from "@/components/ui/button";
 
-const errorMessages: Record<
-  string,
-  { title: string; message: string; action?: string }
-> = {
-  email_not_found: {
-    title: "Email not found",
-    message:
-      "We couldn't retrieve an email from your GitHub account. This usually happens when your email is private or not verified.",
-    action:
-      "Make sure your GitHub account has at least one verified email. You may also need to revoke app access and try again.",
-  },
-  invalid_code: {
-    title: "Authentication failed",
-    message: "The authorization code from GitHub was invalid or expired.",
-    action: "Please try signing in again.",
-  },
-  no_callback_url: {
-    title: "Authentication failed",
-    message: "No callback URL was found for this authentication request.",
-    action: "Please try signing in again.",
-  },
-  oauth_provider_not_found: {
-    title: "Authentication failed",
-    message: "The OAuth provider configuration could not be found.",
-    action: "Please contact support if this persists.",
-  },
-  unable_to_get_user_info: {
-    title: "Authentication failed",
-    message: "We couldn't retrieve your account information from GitHub.",
-    action: "Please try signing in again.",
-  },
-  state_not_found: {
-    title: "Authentication failed",
-    message: "The authentication state was missing or expired.",
-    action: "Please try signing in again.",
-  },
+const errorMessages: Record<string, { title: string; message: string; action?: string }> = {
+  email_not_found: { title: "GitHub did not share an email.", message: "Bitrok needs a verified email address to create your account.", action: "Make a verified email visible to OAuth apps, revoke the existing Bitrok authorization, then try again." },
+  invalid_code: { title: "That sign-in link expired.", message: "GitHub returned an invalid or expired authorization code.", action: "Start a fresh sign-in request." },
+  no_callback_url: { title: "The sign-in request is incomplete.", message: "No callback URL was attached to this authentication request.", action: "Return to the login page and try again." },
+  oauth_provider_not_found: { title: "GitHub sign-in is unavailable.", message: "The OAuth provider is not configured correctly.", action: "Contact support if the problem continues." },
+  unable_to_get_user_info: { title: "GitHub profile access failed.", message: "Bitrok could not retrieve the account information required to sign you in.", action: "Try again or use email and password." },
+  state_not_found: { title: "The sign-in session expired.", message: "The authentication state is missing or no longer valid.", action: "Start a fresh sign-in request." },
 };
 
-function ErrorPageContent() {
-  const searchParams = useSearchParams();
-  const errorCode = searchParams.get("error") || "unknown";
-  const errorInfo = errorMessages[errorCode] || {
-    title: "Something went wrong",
-    message: "We encountered an unexpected error during sign in.",
-    action: "Please try again.",
-  };
-
-  return (
-    <div className="relative min-h-full flex items-center justify-center px-6 py-16 overflow-hidden">
-      <div
-        className="absolute inset-0 bg-starfield [mask-image:radial-gradient(60%_50%_at_50%_50%,#000,transparent)] opacity-60"
-        aria-hidden
-      />
-      <div className="relative w-full max-w-xs text-center">
-        <div className="flex justify-center mb-4">
-          <Link href="/">
-            <Logo />
-          </Link>
-        </div>
-        <div className="flex justify-center mb-4">
-          <StatusGlyph variant="danger" className="text-4xl" />
-        </div>
-        <Eyebrow ornament="·">error</Eyebrow>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight mb-4">
-          {errorInfo.title}
-        </h1>
-
-        <p className="text-sm text-danger mb-2">{errorInfo.message}</p>
-        {errorInfo.action && (
-          <p className="text-sm text-muted mb-8">{errorInfo.action}</p>
-        )}
-
-        {errorCode === "email_not_found" && (
-          <ol className="text-left text-sm text-muted space-y-2 mb-8 list-decimal list-inside font-mono">
-            <li>
-              Verify a primary email in{" "}
-              <a
-                href="https://github.com/settings/emails"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
-                GitHub Email Settings
-              </a>
-              .
-            </li>
-            <li>
-              Revoke Bitrok in{" "}
-              <a
-                href="https://github.com/settings/applications"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
-                Authorized OAuth Apps
-              </a>
-              .
-            </li>
-            <li>Return here and sign in again.</li>
-          </ol>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <Link href="/login">
-            <Button className="w-full" arrow>
-              Try again
-            </Button>
-          </Link>
-          <Link href="/">
-            <Button variant="ghost" className="w-full">
-              Go home
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+function ErrorContent() {
+  const code = useSearchParams().get("error") || "unknown";
+  const info = errorMessages[code] || { title: "Something interrupted sign-in.", message: "Bitrok encountered an unexpected authentication error.", action: "Try signing in again." };
+  return <AuthShell eyebrow="Authentication error" title={info.title} description={info.message} asideTitle="Your tunnels are still safe." asideBody="A failed authentication attempt does not expose tunnel credentials or change your reserved endpoints.">
+    <div role="alert" className="flex gap-4 rounded-xl border border-danger/25 bg-danger/8 p-4"><CircleAlert className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden /><div><strong className="text-sm">What to do next</strong><p className="mt-1 text-sm leading-6 text-muted-foreground">{info.action}</p></div></div>
+    {code === "email_not_found" && <ol className="mt-5 space-y-3 rounded-xl border border-hairline bg-background/65 p-5 text-sm text-muted-foreground"><li className="flex gap-3"><span className="font-mono text-accent">01</span><span>Verify a primary email in <a href="https://github.com/settings/emails" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline decoration-accent underline-offset-4">GitHub Email Settings <ExternalLink className="inline size-3" aria-hidden /></a>.</span></li><li className="flex gap-3"><span className="font-mono text-accent">02</span><span>Revoke Bitrok under GitHub&apos;s authorized OAuth apps.</span></li><li className="flex gap-3"><span className="font-mono text-accent">03</span><span>Return here and start a fresh sign-in.</span></li></ol>}
+    <div className="mt-6 grid gap-3 sm:grid-cols-2"><Link href="/" className={buttonClassName({ variant: "ghost" })}>Return Home</Link><Link href="/login" className={buttonClassName({ variant: "accent" })}>Try Sign In Again <ArrowRight className="size-4" aria-hidden /></Link></div>
+  </AuthShell>;
 }
 
-export default function ErrorPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-full flex items-center justify-center">
-          <p className="text-sm text-muted font-mono">loading…</p>
-        </div>
-      }
-    >
-      <ErrorPageContent />
-    </Suspense>
-  );
-}
+export default function ErrorPage() { return <Suspense fallback={<div className="flex min-h-full items-center justify-center" role="status">Loading…</div>}><ErrorContent /></Suspense>; }

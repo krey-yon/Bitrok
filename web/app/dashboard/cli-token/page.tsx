@@ -1,38 +1,18 @@
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { requireAuth } from "@/lib/session";
-import Link from "next/link";
+import { DashboardHeader } from "@/app/components/dashboard-header";
 import { CliTokenGenerator } from "./cli-token-generator";
-import { Logo } from "@/components/ui/logo";
-import { Eyebrow } from "@/components/ui/eyebrow";
 
 export default async function CliTokenPage() {
-  await requireAuth();
-
+  const session = await requireAuth();
   return (
-    <div className="min-h-full flex flex-col">
-      <nav className="sticky top-0 z-50 border-b border-hairline bg-background/80 backdrop-blur">
-        <div className="max-w-3xl mx-auto px-6 h-12 flex items-center justify-between text-sm">
-          <Link href="/dashboard" className="font-mono">
-            <Logo />
-          </Link>
-          <Link
-            href="/dashboard"
-            className="text-muted-foreground hover:text-foreground transition-colors font-mono text-xs"
-          >
-            ← dashboard
-          </Link>
+    <div className="min-h-full bg-page-gradient">
+      <DashboardHeader email={session.user.email ?? undefined} />
+      <main id="main-content" className="section-shell py-10 sm:py-14">
+        <div className="grid gap-8 lg:grid-cols-[.75fr_1.25fr] lg:gap-14">
+          <section><div className="signal-label">CLI access</div><h1 className="mt-5 text-balance text-4xl font-semibold tracking-[-.045em] sm:text-5xl">Connect your terminal.</h1><p className="mt-4 max-w-md text-pretty leading-7 text-muted-foreground">Generate a short-lived credential for the Bitrok CLI. It authorizes tunnel connections for your account.</p><div className="mt-8 space-y-4 text-sm"><div className="flex gap-3"><KeyRound className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden /><div><strong>30-day lifetime</strong><p className="mt-1 text-muted-foreground">Create a fresh token whenever you need one.</p></div></div><div className="flex gap-3"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden /><div><strong>Shown once</strong><p className="mt-1 text-muted-foreground">Bitrok never displays the raw token again.</p></div></div></div></section>
+          <section className="rounded-[var(--radius-xl)] border border-hairline bg-card/80 p-6 shadow-[0_24px_70px_rgb(0_0_0/8%)] sm:p-8"><CliTokenGenerator /></section>
         </div>
-      </nav>
-
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-14 w-full">
-        <Eyebrow ornament="·">cli token</Eyebrow>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight mb-2">
-          CLI token.
-        </h1>
-        <p className="text-sm text-muted font-mono mb-12">
-          for the bitrok cli · valid 30 days
-        </p>
-
-        <CliTokenGenerator />
       </main>
     </div>
   );

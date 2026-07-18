@@ -2,16 +2,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Card — the terminal-cosmic surface.
+ * Card — the Quantum Grid surface.
  *
- * Flat: hairline border, card bg, no gradient edge, no glow hover.
- * The hover lift is a border brighten (hairline → border), not a shadow.
+ * Glassmorphism: translucent bg with backdrop blur, subtle gradient border,
+ * and a soft glow on hover. The hover is a border brighten + glow, not a shadow.
  *
- * variant="terminal" renders the faux-window chrome: a hairline header
- * strip with three dots and an optional title, for log panels and code.
+ * variant="terminal" renders the faux-window chrome with scanline effect.
  */
 type CardProps = React.HTMLAttributes<HTMLDivElement> & {
-  variant?: "default" | "terminal";
+  variant?: "default" | "terminal" | "glass";
   terminalTitle?: string;
 };
 
@@ -22,8 +21,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         <div
           ref={ref}
           className={cn(
-            "terminal overflow-hidden text-card-foreground",
-            "transition-colors duration-200 ease-[var(--ease-bitrok)]",
+            "terminal terminal-scanlines overflow-hidden text-card-foreground",
+                        "transition-[border-color,background-color,box-shadow,transform] duration-200 ease-[var(--ease-bitrok)]",
             className,
           )}
           {...props}
@@ -44,13 +43,27 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         </div>
       );
     }
+    if (variant === "glass") {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            "glass rounded-card text-card-foreground",
+                        "transition-[border-color,background-color,box-shadow,transform] duration-200 ease-[var(--ease-bitrok)]",
+            "hover:border-accent/20 hover:glow-sm",
+            className,
+          )}
+          {...props}
+        />
+      );
+    }
     return (
       <div
         ref={ref}
         className={cn(
           "border border-hairline rounded-card bg-card text-card-foreground",
-          "transition-colors duration-200 ease-[var(--ease-bitrok)]",
-          "hover:border-border",
+                    "transition-[border-color,background-color,box-shadow,transform] duration-200 ease-[var(--ease-bitrok)]",
+          "hover:border-border hover:shadow-[0_0_20px_var(--accent-glow)]",
           className,
         )}
         {...props}
@@ -79,7 +92,7 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-base font-semibold leading-tight tracking-tight",
+      "text-base font-semibold leading-tight tracking-tight font-display",
       className,
     )}
     {...props}

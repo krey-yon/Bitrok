@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 
 /**
  * Divider — a simple hairline rule with a single centered dot.
- * Minimal section break; no celestial ornament.
  */
 export function Divider({
   className,
@@ -16,7 +15,7 @@ export function Divider({
       aria-orientation="horizontal"
       className={cn("divider-dot py-2", className)}
     >
-      <span aria-hidden className="text-xs leading-none">·</span>
+      <span aria-hidden className="text-xs leading-none text-accent/50">·</span>
     </div>
   );
 }

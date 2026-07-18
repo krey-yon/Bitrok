@@ -2,11 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * StatusGlyph — the ✓ ✗ … ● ○ vocabulary that runs through the whole UI.
- *
- * The onecli.sh DNA: a three-glyph status language (success/blocked/pending)
- * that makes abstract tunnel state tangible. Mono, semantic color, no labels
- * needed when paired with context.
+ * StatusGlyph — the ✓ ✗ … ● ○ vocabulary with subtle glow on active.
  *
  *   success  →  ✓   green   — connected, ok, active
  *   danger   →  ✗   red     — blocked, failed, error

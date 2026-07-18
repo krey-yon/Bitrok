@@ -6,10 +6,8 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * ThemeToggle — dark/light switch. Renders a single icon button that flips
- * the theme. next-themes is client-only, so resolvedTheme is undefined on
- * the server; we keep aria-label/title/icon stable until mounted to avoid
- * a hydration mismatch on the button attributes.
+ * ThemeToggle — dark/light switch with glow on hover.
+ * Stable until mounted to avoid hydration mismatch.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -19,7 +17,6 @@ export function ThemeToggle({ className }: { className?: string }) {
   useEffect(() => setMounted(true), []);
 
   const isDark = resolvedTheme === "dark";
-  // Stable until mounted so SSR + first client render match exactly.
   const label = mounted
     ? isDark
       ? "Switch to light theme"
@@ -35,8 +32,8 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       className={cn(
         "inline-flex h-9 w-9 items-center justify-center rounded-[calc(var(--radius)*0.9)]",
-        "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]",
-        "cursor-pointer transition-colors duration-200 ease-[var(--ease-bitrok)]",
+        "text-muted-foreground hover:text-accent hover:bg-accent/[0.06]",
+        "cursor-pointer transition-[color,background-color,transform] duration-200 ease-[var(--ease-bitrok)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         className,
       )}

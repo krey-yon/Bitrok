@@ -2,16 +2,16 @@
  * TrafficDiagram — the hero centerpiece.
  *
  * An animated SVG showing a request flowing from a public URL, through the
- * bitrok relay, to localhost. Replaces the old ASCII-tunnel.
+ * bitrok relay, to localhost. Glassmorphism node cards with glow.
  *
  *   myapp.bitrok.tech  ──▶  bitrok relay  ──▶  localhost:3000
  *
  * Motion (all subtle, paused under prefers-reduced-motion via globals.css):
- *   - dashed connectors travel via the `flow` CSS keyframe (stroke-dashoffset)
+ *   - dashed connectors travel via the `flow` CSS keyframe
  *   - an amber packet rides the full path left→right via SMIL animateMotion
  *   - a soft status dot pulses on the relay
  *
- * Pure SVG + CSS/SMIL, so it renders server-side with zero client JS.
+ * Pure SVG + CSS/SMIL → server-rendered, zero client JS.
  */
 
 const NODE_Y = 110;
@@ -19,18 +19,14 @@ const NODE_H = 64;
 const NODE_W = 150;
 const NODE_RX = 14;
 
-// node x-positions (left edge)
 const AX = 40;
 const BX = 305;
 const CX = 570;
-// connector endpoints (right edge of A → left edge of B, etc.)
 const A_RIGHT = AX + NODE_W;
 const B_LEFT = BX;
 const B_RIGHT = BX + NODE_W;
 const C_LEFT = CX;
-// packet travels the full inbound path: URL → relay → localhost
 const PACKET_PATH = `M${A_RIGHT} ${NODE_Y} L${C_LEFT} ${NODE_Y}`;
-// response travels back: localhost → relay → URL
 const REPLY_PATH = `M${C_LEFT} ${NODE_Y} L${A_RIGHT} ${NODE_Y}`;
 
 export function TrafficDiagram({ className = "" }: { className?: string }) {
@@ -41,7 +37,17 @@ export function TrafficDiagram({ className = "" }: { className?: string }) {
       role="img"
       aria-label="Animated diagram: a request flows from myapp.bitrok.tech through the bitrok relay to localhost:3000."
     >
-      {/* connectors — animated dashed lines */}
+      <defs>
+        <filter id="nodeGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* connectors */}
       <line
         x1={A_RIGHT}
         y1={NODE_Y}
@@ -67,17 +73,14 @@ export function TrafficDiagram({ className = "" }: { className?: string }) {
         opacity={0.55}
       />
 
-      {/* arrowheads at each hop */}
       <Arrow x={B_LEFT - 4} y={NODE_Y} />
       <Arrow x={C_LEFT - 4} y={NODE_Y} />
 
-      {/* nodes */}
       <Node x={AX} label="myapp.bitrok.tech" sub="public url">
         <GlobeIcon />
       </Node>
       <Node x={BX} label="bitrok relay" sub="your server">
         <RelayIcon />
-        {/* live status pulse on the relay */}
         <circle
           cx={BX + NODE_W - 16}
           cy={NODE_Y - NODE_H / 2 + 14}
@@ -90,7 +93,15 @@ export function TrafficDiagram({ className = "" }: { className?: string }) {
         <TerminalIcon />
       </Node>
 
-      {/* the traveling packet — rides the full inbound path */}
+      {/* traveling packet with glow trail */}
+      <circle r={9} fill="var(--accent)" opacity={0.15}>
+        <animateMotion
+          dur="2.6s"
+          repeatCount="indefinite"
+          path={PACKET_PATH}
+          calcMode="linear"
+        />
+      </circle>
       <circle r={5} fill="var(--accent)">
         <animateMotion
           dur="2.6s"
@@ -100,18 +111,8 @@ export function TrafficDiagram({ className = "" }: { className?: string }) {
         />
       </circle>
 
-      {/* a faint ghost trail under the packet for depth */}
-      <circle r={9} fill="var(--accent)" opacity={0.18}>
-        <animateMotion
-          dur="2.6s"
-          repeatCount="indefinite"
-          path={PACKET_PATH}
-          calcMode="linear"
-        />
-      </circle>
-
-      {/* the response packet — rides back localhost → URL, lighter + delayed */}
-      <circle r={4} fill="var(--accent-light)" opacity={0.85}>
+      {/* response packet */}
+      <circle r={4} fill="var(--secondary)" opacity={0.85}>
         <animateMotion
           dur="2.6s"
           begin="1.3s"
@@ -150,9 +151,7 @@ function Node({
         stroke="var(--border)"
         strokeWidth={1}
       />
-      {/* icon centered in the upper area of the node */}
       <g transform={`translate(${cx - 12}, ${NODE_Y - 18})`}>{children}</g>
-      {/* labels */}
       <text
         x={cx}
         y={NODE_Y + 10}
@@ -193,7 +192,7 @@ function Arrow({ x, y }: { x: number; y: number }) {
   );
 }
 
-/* ── minimal line icons (24x24 box, amber) ─────────────────────────────── */
+/* ── minimal line icons (24x24 box, accent) ─────────────────────────────── */
 
 function GlobeIcon() {
   return (

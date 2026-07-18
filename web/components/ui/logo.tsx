@@ -1,29 +1,15 @@
 import { cn } from "@/lib/utils";
 
-/**
- * Logo — the Bitrok wordmark. Lowercase bold Inter with a small amber dot
- * as the mark. Minimal, no terminal glyph. Sized via className; inherits
- * text color.
- */
-export function Logo({
-  className,
-  withMark = true,
-}: {
-  className?: string;
-  withMark?: boolean;
-}) {
+export function Logo({ className, withMark = true }: { className?: string; withMark?: boolean }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 font-bold tracking-tight lowercase",
-        className,
-      )}
-    >
+    <span className={cn("inline-flex items-center gap-2.5 font-display font-bold tracking-[-0.04em] lowercase", className)} translate="no">
       {withMark && (
-        <span
-          className="inline-block size-1.5 rounded-full bg-accent"
-          aria-hidden
-        />
+        <svg className="size-6 overflow-visible" viewBox="0 0 24 24" aria-hidden>
+          <path d="M4 4v16M4 12h8c4.4 0 8-3.6 8-8M12 12c4.4 0 8 3.6 8 8" fill="none" stroke="var(--foreground)" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="4" cy="12" r="2.2" fill="var(--accent)" />
+          <circle cx="20" cy="4" r="2.2" fill="var(--secondary)" />
+          <circle cx="20" cy="20" r="2.2" fill="var(--accent)" />
+        </svg>
       )}
       <span>bitrok</span>
     </span>

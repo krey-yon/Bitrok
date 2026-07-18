@@ -1,12 +1,9 @@
 /**
  * NetworkMesh — animated SVG of the bitrok relay mesh.
  *
- * Nodes (your tunnels + the relay) connected by edges, with amber pulses
+ * Nodes (tunnels + relay) connected by edges, with cyan + violet pulses
  * traveling along the links via SMIL `<animateMotion>` and nodes gently
- * breathing. Represents "one relay, every tunnel" as living infrastructure.
- *
- * Pure SVG + SMIL → server-rendered, zero client JS. Paused under
- * prefers-reduced-motion. Decorative (aria-hidden).
+ * breathing with halos. Pure SVG + SMIL → zero client JS.
  */
 
 type Node = { id: string; x: number; y: number; hub?: boolean };
@@ -35,7 +32,6 @@ const EDGES: Edge[] = [
   { from: "f", to: "h" },
 ];
 
-// which edges carry a visible pulse, and how fast
 const PULSES = [
   { edge: "a->relay", dur: "3.2s", delay: "0s" },
   { edge: "relay->e", dur: "2.8s", delay: "0.4s" },
@@ -78,37 +74,48 @@ export function NetworkMesh({ className = "" }: { className?: string }) {
         const to = byId[toId]!;
         const d = `M${from.x} ${from.y} L${to.x} ${to.y}`;
         return (
-          <circle key={`p${i}`} r={3} fill="var(--accent)">
-            <animateMotion
-              dur={p.dur}
-              begin={p.delay}
-              repeatCount="indefinite"
-              path={d}
-              calcMode="linear"
-            />
-          </circle>
+          <g key={`p${i}`}>
+            {/* glow trail */}
+            <circle r={5} fill="var(--accent)" opacity={0.2}>
+              <animateMotion
+                dur={p.dur}
+                begin={p.delay}
+                repeatCount="indefinite"
+                path={d}
+                calcMode="linear"
+              />
+            </circle>
+            {/* core pulse */}
+            <circle r={2.5} fill="var(--accent)">
+              <animateMotion
+                dur={p.dur}
+                begin={p.delay}
+                repeatCount="indefinite"
+                path={d}
+                calcMode="linear"
+              />
+            </circle>
+          </g>
         );
       })}
 
-      {/* nodes */}
+      {/* nodes with halos */}
       {NODES.map((n) => (
         <g key={n.id}>
-          {/* soft halo */}
           <circle
             cx={n.x}
             cy={n.y}
-            r={n.hub ? 10 : 6}
-            fill="var(--accent)"
-            opacity={n.hub ? 0.18 : 0.12}
+            r={n.hub ? 12 : 7}
+            fill={n.hub ? "var(--accent)" : "var(--secondary)"}
+            opacity={n.hub ? 0.15 : 0.1}
           >
             <animate
               attributeName="r"
-              values={n.hub ? "10;14;10" : "6;9;6"}
+              values={n.hub ? "12;16;12" : "7;10;7"}
               dur="3.5s"
               repeatCount="indefinite"
             />
           </circle>
-          {/* core dot */}
           <circle
             cx={n.x}
             cy={n.y}

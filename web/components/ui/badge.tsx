@@ -2,18 +2,14 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Badge — compact mono status/label pill. Used for tunnel status, log
- * methods, feature tags. Solid status variants share the status palette
- * and can carry a leading status glyph (✓ ✗ …).
- *
- * Terminal-cosmic: mono font, hairline border, translucent tinted bg.
- * Squared, not fully rounded — reads as a terminal tag, not a bubble.
+ * Badge — compact mono status/label pill with glow on status variants.
+ * Glassmorphism: translucent bg, hairline border, mono font.
  */
 const variants = {
   default:
     "border border-hairline bg-transparent text-muted-foreground",
   accent:
-    "border border-accent/30 bg-accent/10 text-accent",
+    "border border-accent/30 bg-accent/10 text-accent shadow-[0_0_10px_var(--accent-glow)]",
   success:
     "border border-success/30 bg-success/10 text-success",
   warning:
@@ -49,7 +45,7 @@ export function Badge({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-[calc(var(--radius)*0.5)] px-2 py-0.5",
         "font-mono text-[0.7rem] leading-none tracking-tight whitespace-nowrap",
-        "transition-colors duration-200",
+        "transition-all duration-200",
         variants[variant],
         className,
       )}
@@ -62,9 +58,7 @@ export function Badge({
 }
 
 /**
- * StatusDot — the ●/○ indicator shared by tunnels everywhere.
- * Matches the CLI's status-pill helper (cli/internal/ui/status.go).
- * Active dot pulses gently (terminal heartbeat).
+ * StatusDot — the ●/○ indicator with a glowing pulse when active.
  */
 export function StatusDot({
   active,
@@ -74,15 +68,16 @@ export function StatusDot({
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-block w-1.5 h-1.5 rounded-full shrink-0",
-        active
-          ? "bg-success animate-pulse-dot"
-          : "bg-muted-foreground/40",
-        className,
+    <span className={cn("relative inline-flex", className)} aria-hidden>
+      {active && (
+        <span className="absolute inset-0 rounded-full bg-success blur-[2px] opacity-50 animate-pulse-dot" />
       )}
-      aria-hidden
-    />
+      <span
+        className={cn(
+          "relative inline-block w-1.5 h-1.5 rounded-full shrink-0",
+          active ? "bg-success" : "bg-muted-foreground/40",
+        )}
+      />
+    </span>
   );
 }

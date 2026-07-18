@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .route { stroke: #151712; }
+    @media (prefers-color-scheme: dark) {
+      .route { stroke: #f2f3ea; }
+    }
+  </style>
+  <path class="route" d="M6 5v22M6 16h10.5C22.3 16 27 11.3 27 5M16.5 16C22.3 16 27 20.7 27 27" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="6" cy="16" r="3" fill="#b8f34a"/>
+  <circle cx="27" cy="5" r="3" fill="#ff7043"/>
+  <circle cx="27" cy="27" r="3" fill="#b8f34a"/>
+</svg>

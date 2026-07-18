@@ -1,420 +1,166 @@
 @import "tailwindcss";
 
-/*
- * Bitrok — Minimal Gradient Design System
- *
- * Clean slate (Jul 2026). YC-startup minimal: lots of whitespace, rich
- * multi-stop gradient backgrounds in BOTH themes, fine SVG film-grain noise
- * over the gradients, a halftone dotted-art dot grid as ambient texture,
- * soft drifting gradient orbs, and one animated SVG traffic diagram.
- *
- * Inter for everything; system-mono stack for code only. Amber #f59e0b /
- * #fbbf24 is the single brand accent, used sparingly. Hairline borders,
- * flat cards, no heavy shadows.
- *
- * Theming: class-based via next-themes. :root = light tokens, .dark
- * overrides. Dark is the default (ThemeProvider defaultTheme="dark").
+/* Bitrok — Signal System
+ * Editorial minimalism for infrastructure: warm neutral surfaces, acid-lime
+ * signal color, safety-orange secondary, precise typography, restrained noise.
  */
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  TOKENS — LIGHT (warm paper)                                              */
-/* ────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* surfaces */
-  --background: #fafaf9;
-  --foreground: #0a0a0a;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-
-  /* text scale */
-  --muted: #a3a3a3;
-  --muted-foreground: #525252;
-
-  /* lines */
-  --border: #e7e5e4;
-  --hairline: #f0eeec;
-  --input: #d4d4d4;
-  --ring: #f59e0b;
-
-  /* accent — vivid amber fill + a deeper readable text/icon variant */
-  --accent: #f59e0b;
-  --accent-foreground: #1a1206;
-  --accent-soft: #c2410c;
-  --accent-light: #fbbf24;
-
-  /* status */
-  --success: #16a34a;
-  --success-foreground: #052e16;
-  --warning: #d97706;
-  --warning-foreground: #1a1206;
-  --danger: #dc2626;
-  --danger-foreground: #2a0606;
-
-  /* radii — modern, ~12px */
-  --radius-sm: 0.5rem;
-  --radius: 0.75rem;
+  --background: #f3f2ec;
+  --foreground: #151712;
+  --card: #faf9f4;
+  --card-foreground: #151712;
+  --popover: #fffef9;
+  --popover-foreground: #151712;
+  --muted: #a6a99f;
+  --muted-foreground: #62675d;
+  --border: #cfd1c7;
+  --hairline: #dedfd6;
+  --input: #b8bbb0;
+  --ring: #4c7200;
+  --accent: #77a900;
+  --accent-foreground: #101400;
+  --accent-soft: #4f7600;
+  --accent-light: #91c900;
+  --accent-glow: rgb(119 169 0 / 18%);
+  --secondary: #d94d21;
+  --secondary-light: #f06435;
+  --success: #267a45;
+  --success-foreground: #fff;
+  --warning: #a95d00;
+  --warning-foreground: #fff;
+  --danger: #c23535;
+  --danger-foreground: #fff;
+  --radius-sm: .45rem;
+  --radius: .7rem;
   --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
-
-  /* dot pattern — warm paper dots */
-  --dot: rgb(0 0 0 / 0.07);
-  --grid-line: rgb(0 0 0 / 0.025);
-
-  /* hero gradient — soft warm wash on paper */
-  --hero-gradient:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(245 158 11 / 0.14), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 85% 8%, rgb(217 119 6 / 0.07), transparent 50%),
-    linear-gradient(180deg, #fafaf9 0%, #f4f3f1 100%);
-
-  /* page gradient — gentler continuation for non-hero sections */
-  --page-gradient: linear-gradient(180deg, #fafaf9 0%, #f6f5f4 100%);
-
-  /* noise opacity tuned per theme */
-  --noise-opacity: 0.5;
-
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --radius-xl: 1.4rem;
+  --grid-line: rgb(21 23 18 / 5%);
+  --grid-line-major: rgb(21 23 18 / 9%);
+  --dot: rgb(21 23 18 / 13%);
+  --hero-gradient: radial-gradient(circle at 75% 15%, rgb(119 169 0 / 12%), transparent 32%), radial-gradient(circle at 18% 58%, rgb(217 77 33 / 7%), transparent 27%), linear-gradient(180deg, #f7f6f0 0%, #efeee7 100%);
+  --page-gradient: linear-gradient(180deg, #f7f6f0 0%, #efeee7 100%);
+  --glass-bg: rgb(250 249 244 / 78%);
+  --glass-border: rgb(21 23 18 / 10%);
+  --glass-blur: 18px;
+  --noise-opacity: .07;
+  --grid-opacity: .8;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  TOKENS — DARK (default)                                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #0e0e0e;
-  --card-foreground: #ededed;
-  --popover: #121212;
-  --popover-foreground: #ededed;
-
-  --muted: #525252;
-  --muted-foreground: #a3a3a3;
-
-  --border: #262626;
-  --hairline: #1c1c1c;
-  --input: #2a2a2a;
-  --ring: #fbbf24;
-
-  --accent: #fbbf24;
-  --accent-foreground: #0a0a0a;
-  --accent-soft: #fbbf24;
-  --accent-light: #fcd34d;
-
-  --success: #22c55e;
-  --success-foreground: #04210f;
-  --warning: #fbbf24;
-  --warning-foreground: #1a1206;
-  --danger: #ef4444;
-  --danger-foreground: #2a0606;
-
-  --dot: rgb(255 255 255 / 0.06);
-  --grid-line: rgb(255 255 255 / 0.03);
-
-  --hero-gradient:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(251 191 36 / 0.12), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 82% 6%, rgb(245 158 11 / 0.07), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 15% 12%, rgb(120 53 15 / 0.10), transparent 55%),
-    linear-gradient(180deg, #0a0a0a 0%, #0c0c0c 100%);
-
-  --page-gradient: linear-gradient(180deg, #0a0a0a 0%, #0b0b0b 100%);
-
-  --noise-opacity: 0.35;
+  color-scheme: dark;
+  --background: #0b0d0a;
+  --foreground: #f2f3ea;
+  --card: #12150f;
+  --card-foreground: #f2f3ea;
+  --popover: #171a13;
+  --popover-foreground: #f2f3ea;
+  --muted: #565b50;
+  --muted-foreground: #a4aa9b;
+  --border: #34392e;
+  --hairline: #262a22;
+  --input: #3c4235;
+  --ring: #b8f34a;
+  --accent: #b8f34a;
+  --accent-foreground: #111600;
+  --accent-soft: #c7fa69;
+  --accent-light: #d2ff7e;
+  --accent-glow: rgb(184 243 74 / 16%);
+  --secondary: #ff7043;
+  --secondary-light: #ff8b66;
+  --success: #63d68b;
+  --success-foreground: #071109;
+  --warning: #ffbd5a;
+  --warning-foreground: #171006;
+  --danger: #ff6b6b;
+  --danger-foreground: #190606;
+  --grid-line: rgb(242 243 234 / 4%);
+  --grid-line-major: rgb(184 243 74 / 8%);
+  --dot: rgb(242 243 234 / 12%);
+  --hero-gradient: radial-gradient(circle at 75% 15%, rgb(184 243 74 / 11%), transparent 30%), radial-gradient(circle at 18% 58%, rgb(255 112 67 / 7%), transparent 26%), linear-gradient(180deg, #0d100b 0%, #0a0c09 100%);
+  --page-gradient: linear-gradient(180deg, #0d100b 0%, #090b08 100%);
+  --glass-bg: rgb(18 21 15 / 76%);
+  --glass-border: rgb(242 243 234 / 9%);
+  --noise-opacity: .1;
+  --grid-opacity: 1;
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  TAILWIND THEME MAPPING                                                   */
-/* ────────────────────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-hairline: var(--hairline);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
-  --color-accent-light: var(--accent-light);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-danger: var(--danger);
-  --color-danger-foreground: var(--danger-foreground);
-
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-
-  --radius-sm: var(--radius-sm);
-  --radius-card: var(--radius);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-
-  --ease-bitrok: var(--ease);
-
-  --animate-fade-in: fade-in 0.4s var(--ease) both;
-  --animate-slide-up: slide-up 0.5s var(--ease) both;
-  --animate-slide-down: slide-down 0.3s var(--ease) both;
-  --animate-scale-in: scale-in 0.25s var(--ease) both;
-  --animate-blink: blink 1.1s steps(1) infinite;
-  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
-  --animate-drift: drift 22s ease-in-out infinite;
-  --animate-drift-slow: drift-slow 30s ease-in-out infinite;
-  --animate-pulse-dots: pulse-dots 6s ease-in-out infinite;
-  --animate-flow: flow 1.6s linear infinite;
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border); --color-hairline: var(--hairline); --color-input: var(--input); --color-ring: var(--ring);
+  --color-accent: var(--accent); --color-accent-soft: var(--accent-soft); --color-accent-light: var(--accent-light); --color-accent-foreground: var(--accent-foreground);
+  --color-secondary: var(--secondary); --color-secondary-light: var(--secondary-light);
+  --color-success: var(--success); --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning); --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger); --color-danger-foreground: var(--danger-foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --radius-sm: var(--radius-sm); --radius-card: var(--radius); --radius-lg: var(--radius-lg); --radius-xl: var(--radius-xl);
+  --ease-bitrok: var(--ease); --ease-spring: var(--ease-spring);
+  --animate-fade-in: fade-in .55s var(--ease) both;
+  --animate-slide-up: slide-up .65s var(--ease) both;
+  --animate-pulse-dot: pulse-dot 2.4s ease-in-out infinite;
+  --animate-flow: flow 1.7s linear infinite;
+  --animate-scanline: scanline 9s linear infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slide-down {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
-}
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-@keyframes shimmer {
-  from { background-position: -200% 0; }
-  to { background-position: 200% 0; }
-}
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes pulse-dot { 50% { opacity: .45; transform: scale(.8) } }
+@keyframes flow { to { stroke-dashoffset: -24 } }
+@keyframes scanline { from { transform: translateY(-100%) } to { transform: translateY(700%) } }
+@keyframes shimmer { from { background-position: -200% 0 } to { background-position: 200% 0 } }
 
-/* drifting gradient orbs — ambient motion in the hero */
-@keyframes drift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(4%, 3%, 0) scale(1.08); }
-  66% { transform: translate3d(-3%, -2%, 0) scale(0.96); }
-}
-@keyframes drift-slow {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(-5%, 4%, 0) scale(1.1); }
-}
-
-/* gentle breathing of the dotted grid */
-@keyframes pulse-dots {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-/* dashed-path travel for the flow diagram (CSS fallback to SMIL) */
-@keyframes flow {
-  to { stroke-dashoffset: -24; }
-}
-
-/* rotating gradient ring — needs an animatable custom property */
-@property --gb-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes spin-angle {
-  to { --gb-angle: 360deg; }
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  BASE                                                                     */
-/* ────────────────────────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    border-color: var(--hairline);
-  }
-
-  body {
-    background-color: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  ::selection {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-  }
-
+  * { border-color: var(--hairline); }
+  html { scroll-behavior: smooth; }
+  body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); scroll-margin-top: 6rem; }
+  button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  ::selection { background: var(--accent); color: var(--accent-foreground); }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 9999px;
-    border: 2px solid var(--background);
-  }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border: 2px solid var(--background); border-radius: 99px; }
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  UTILITIES — gradient + noise + dotted art + orbs                         */
-/* ────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* hero gradient — the rich multi-stop wash, applied to a background layer */
-  .bg-hero-gradient {
-    background-image: var(--hero-gradient);
-  }
-  .bg-page-gradient {
-    background-image: var(--page-gradient);
-  }
-
-  /*
-   * Film-grain noise — fine SVG fractalNoise tiled over the gradient.
-   * Apply to an absolutely-positioned, pointer-events-none overlay with
-   * mix-blend-mode so it textures whatever sits beneath. Opacity is theme-
-   * tuned via --noise-opacity.
-   */
-  .bg-noise {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 160px 160px;
-    opacity: var(--noise-opacity);
-    mix-blend-mode: overlay;
-  }
-
-  /*
-   * Dotted art — a halftone dot grid. Small evenly-spaced radial dots that
-   * fade out via a soft radial mask so the field breathes instead of
-   * carpeting the screen. This is the "dotted art" texture.
-   */
-  .bg-dots {
-    background-image: radial-gradient(var(--dot) 1px, transparent 1px);
-    background-size: 22px 22px;
-    background-position: 0 0;
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 25%, transparent 78%);
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 25%, transparent 78%);
-  }
-
-  /* denser, smaller dots for inset surfaces (cards, panels) */
-  .bg-dots-fine {
-    background-image: radial-gradient(var(--dot) 0.8px, transparent 0.8px);
-    background-size: 14px 14px;
-  }
-
-  /* starfield dot pattern — kept for auth/error pages that mask it locally */
-  .bg-starfield {
-    background-image: radial-gradient(var(--dot) 1px, transparent 1px);
-    background-size: 22px 22px;
-    background-position: 0 0;
-  }
-
-  /* a single gradient orb — pair with animate-drift / animate-drift-slow */
-  .orb {
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(60px);
-    pointer-events: none;
-    will-change: transform;
-  }
-
-  /*
-   * Gradient border — a slowly rotating conic-gradient ring around a card.
-   * Uses the mask-composite trick so the gradient shows only as a 1px edge.
-   * Subtle premium glow; paused under prefers-reduced-motion.
-   */
-  .gradient-border {
-    position: relative;
-  }
-  .gradient-border::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: conic-gradient(
-      from var(--gb-angle),
-      transparent 0%,
-      var(--accent) 10%,
-      color-mix(in srgb, var(--accent) 60%, transparent) 18%,
-      transparent 28%,
-      transparent 100%
-    );
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    animation: spin-angle 7s linear infinite;
-    opacity: 0.55;
-    pointer-events: none;
-  }
-
-  /* amber text accent for the one emphasized word + icons */
-  .text-accent {
-    color: var(--accent-soft);
-  }
-
-  /* terminal/code panel surface */
-  .terminal {
-    background: var(--card);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius);
-  }
-  .terminal-header {
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  /* shimmering skeleton */
-  .shimmer {
-    background: linear-gradient(
-      90deg,
-      var(--hairline) 25%,
-      color-mix(in srgb, var(--hairline) 60%, var(--background)) 50%,
-      var(--hairline) 75%
-    );
-    background-size: 200% 100%;
-    animation: var(--animate-shimmer, shimmer 1.8s linear infinite);
-  }
-
-  /* simple hairline divider with a centered dot */
-  .divider-dot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    color: var(--muted);
-  }
-  .divider-dot::before,
-  .divider-dot::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--hairline);
-  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+  .bg-hero-gradient { background-image: var(--hero-gradient); }
+  .bg-page-gradient { background-image: var(--page-gradient); }
+  .bg-noise { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 180px; opacity: var(--noise-opacity); mix-blend-mode: soft-light; }
+  .bg-grid { background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 48px 48px; opacity: var(--grid-opacity); }
+  .bg-grid-fine { background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+  .bg-dots, .bg-starfield { background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 22px 22px; }
+  .bg-dots { mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 25%, transparent 78%); }
+  .glass { background: var(--glass-bg); backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); }
+  .text-accent { color: var(--accent-soft); }
+  .text-gradient { background: linear-gradient(100deg, var(--accent-soft), var(--secondary)); background-clip: text; color: transparent; }
+  .glow, .glow-accent { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 22px 60px var(--accent-glow); }
+  .glow-sm { box-shadow: 0 14px 40px var(--accent-glow); }
+  .terminal { background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius); }
+  .terminal-header { border-bottom: 1px solid var(--hairline); }
+  .terminal-scanlines { position: relative; overflow: hidden; }
+  .terminal-scanlines::after { content: ""; position: absolute; inset: 0 0 auto; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: .22; animation: scanline 9s linear infinite; pointer-events: none; }
+  .shimmer { background: linear-gradient(90deg, var(--hairline) 25%, var(--border) 50%, var(--hairline) 75%); background-size: 200% 100%; animation: shimmer 1.8s linear infinite; }
+  .signal-label { display: inline-flex; align-items: center; gap: .55rem; font-family: var(--font-mono); font-size: .7rem; line-height: 1; letter-spacing: .13em; text-transform: uppercase; color: var(--muted-foreground); }
+  .signal-label::before { content: ""; width: 1.35rem; height: 1px; background: var(--accent); }
+  .section-shell { width: 100%; min-width: 0; max-width: 76rem; margin-inline: auto; padding-inline: 1.25rem; box-sizing: border-box; }
+  .surface-panel { border: 1px solid var(--hairline); background: color-mix(in srgb, var(--card) 88%, transparent); border-radius: var(--radius-lg); }
+  .auth-grid { background-image: linear-gradient(var(--grid-line-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line-major) 1px, transparent 1px); background-size: 64px 64px; }
+  .skip-link { position: fixed; top: .75rem; left: .75rem; z-index: 100; transform: translateY(-200%); border-radius: .5rem; background: var(--accent); color: var(--accent-foreground); padding: .7rem 1rem; font-weight: 700; transition: transform .15s ease; }
+  .skip-link:focus { transform: translateY(0); }
 }
 
-/* respect reduced motion globally */
+@media (min-width: 640px) { .section-shell { padding-inline: 2rem; } }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  svg animate, svg animateMotion, svg animateTransform { display: none; }
 }

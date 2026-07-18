@@ -1,103 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { Divider } from "@/components/ui/divider";
+import { LegalSection, LegalShell } from "@/app/components/legal-shell";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy",
-  description: "Bitrok privacy policy and data handling practices.",
-};
-
-const sectionLabel =
-  "font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground mt-10 mb-3";
-const body = "text-sm text-muted-foreground leading-relaxed mb-4";
+export const metadata: Metadata = { title: "Privacy Policy", description: "Bitrok privacy policy and data handling practices." };
 
 export default function PrivacyPage() {
-  return (
-    <div className="min-h-full flex flex-col">
-      <nav className="sticky top-0 z-50 border-b border-hairline bg-background/80 backdrop-blur">
-        <div className="max-w-3xl mx-auto px-6 h-12 flex items-center justify-between text-sm">
-          <Link href="/" className="font-mono">
-            <Logo />
-          </Link>
-          <Link
-            href="/"
-            className="text-muted-foreground hover:text-foreground transition-colors font-mono text-xs"
-          >
-            ← home
-          </Link>
-        </div>
-      </nav>
-
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-14 w-full">
-        <Eyebrow ornament="·">legal</Eyebrow>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight mb-2">
-          Privacy policy.
-        </h1>
-        <p className="text-sm text-muted font-mono mb-4">
-          last updated:{" "}
-          {new Date().toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-
-        <h2 className={sectionLabel}>01 · information we collect</h2>
-        <p className={body}>
-          Information you provide when you create an account — name, email,
-          authentication credentials — plus information about your tunnels and
-          usage patterns.
-        </p>
-
-        <Divider />
-
-        <h2 className={sectionLabel}>02 · how we use it</h2>
-        <p className={body}>
-          To provide, maintain, and improve the service, to communicate with
-          you, and to detect and prevent fraud and abuse.
-        </p>
-
-        <Divider />
-
-        <h2 className={sectionLabel}>03 · data security</h2>
-        <p className={body}>
-          We implement appropriate technical and organizational measures to
-          protect your personal data against unauthorized access, alteration,
-          disclosure, or destruction.
-        </p>
-
-        <Divider />
-
-        <h2 className={sectionLabel}>04 · data retention</h2>
-        <p className={body}>
-          We retain personal data only as long as necessary for the purposes it
-          was collected for, including legal, accounting, or reporting
-          requirements.
-        </p>
-
-        <Divider />
-
-        <h2 className={sectionLabel}>05 · your rights</h2>
-        <p className={body}>
-          You may access, correct, or delete your personal data, and may
-          restrict or object to certain processing of it.
-        </p>
-
-        <Divider />
-
-        <h2 className={sectionLabel}>06 · contact</h2>
-        <p className={body}>
-          Questions?{" "}
-          <a
-            href={`mailto:${process.env.PRIVACY_CONTACT_EMAIL || "privacy@example.com"}`}
-            className="text-accent hover:underline"
-          >
-            {process.env.PRIVACY_CONTACT_EMAIL || "privacy@example.com"}
-          </a>
-        </p>
-      </main>
-    </div>
-  );
+  const email = process.env.PRIVACY_CONTACT_EMAIL || "privacy@example.com";
+  return <LegalShell eyebrow="Legal / Privacy" title="Privacy, without the fog." intro="A plain-language overview of what Bitrok collects, why it is needed, and the control you keep. Last revised July 19, 2026.">
+    <LegalSection number="01" title="Information We Collect"><p>We collect information you provide when creating an account—such as your name, email, and authentication credentials—plus tunnel configuration and service usage needed to operate Bitrok.</p></LegalSection>
+    <LegalSection number="02" title="How We Use It"><p>We use this information to provide, maintain, secure, and improve the service; communicate with you; and detect fraud or abuse.</p></LegalSection>
+    <LegalSection number="03" title="Data Security"><p>We apply technical and organizational safeguards designed to protect personal data from unauthorized access, alteration, disclosure, or destruction.</p></LegalSection>
+    <LegalSection number="04" title="Data Retention"><p>We retain personal data only for as long as necessary to provide the service and meet legal, accounting, or reporting obligations.</p></LegalSection>
+    <LegalSection number="05" title="Your Rights"><p>You may request access to, correction of, or deletion of your personal data, and may restrict or object to certain processing where applicable.</p></LegalSection>
+    <LegalSection number="06" title="Contact"><p>Questions about your data? Email <a href={`mailto:${email}`} className="font-medium text-foreground underline decoration-accent decoration-2 underline-offset-4 hover:text-accent">{email}</a>.</p></LegalSection>
+  </LegalShell>;
 }

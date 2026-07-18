@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-// Inter for everything; a system-mono stack (declared in globals.css) covers
-// code/terminal blocks so we avoid a second font fetch.
 const inter = Inter({
   variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -20,8 +30,16 @@ export const metadata: Metadata = {
     default: "Bitrok — Self-Hosted Tunnels",
     template: "%s | Bitrok",
   },
-  description: "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
-  keywords: ["tunnel", "localhost", "ngrok alternative", "self-hosted", "reverse proxy", "developer tools"],
+  description:
+    "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
+  keywords: [
+    "tunnel",
+    "localhost",
+    "ngrok alternative",
+    "self-hosted",
+    "reverse proxy",
+    "developer tools",
+  ],
   authors: [{ name: "Bitrok" }],
   creator: "Bitrok",
   publisher: "Bitrok",
@@ -42,7 +60,8 @@ export const metadata: Metadata = {
     url: baseUrl,
     siteName: "Bitrok",
     title: "Bitrok — Self-Hosted Tunnels",
-    description: "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
+    description:
+      "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
     images: [
       {
         url: `${baseUrl}/og-image.png`,
@@ -55,7 +74,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Bitrok — Self-Hosted Tunnels",
-    description: "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
+    description:
+      "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
     images: [`${baseUrl}/og-image.png`],
     creator: "@bitrok",
   },
@@ -75,7 +95,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -95,7 +115,9 @@ export default function RootLayout({
               ],
               contactPoint: {
                 "@type": "ContactPoint",
-                email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@example.com",
+                email:
+                  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
+                  "support@example.com",
                 contactType: "customer service",
               },
             }),
@@ -139,7 +161,10 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <a href="#main-content" className="skip-link">Skip to content</a>
+          {children}
+        </ThemeProvider>
         {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
           <Script
             defer
