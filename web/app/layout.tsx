@@ -173,6 +173,12 @@ export default function RootLayout({
             strategy="lazyOnload"
           />
         )}
+        <Script
+          defer
+          src="https://analytics.kreyon.in/script.js"
+          data-website-id="0a275d65-15c9-4a2f-8b64-8d835005ef0b"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );
