@@ -2,14 +2,39 @@ package relay
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 // Session represents an active WebSocket connection for a tunnel.
 type Session struct {
-	TunnelID string
-	Conn     *websocket.Conn
+	TunnelID     string
+	Conn         *websocket.Conn
+	writeMu      sync.Mutex
+	writeTimeout time.Duration
+}
+
+// NewSession constructs a tunnel session with the given write timeout.
+func NewSession(tunnelID string, conn *websocket.Conn, writeTimeout time.Duration) *Session {
+	return &Session{
+		TunnelID:     tunnelID,
+		Conn:         conn,
+		writeTimeout: writeTimeout,
+	}
+}
+
+// WriteJSON serializes writes to the underlying WebSocket and resets the write
+// deadline before each frame. gorilla/websocket permits one concurrent writer
+// per conn and a single absolute write deadline — without the mutex, concurrent
+// proxy + ping writes corrupt the stream; without resetting the deadline, the
+// ping loop's SetWriteDeadline(now+writeTimeout) expires and every later proxy
+// write fails with i/o timeout.
+func (s *Session) WriteJSON(v any) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	_ = s.Conn.SetWriteDeadline(time.Now().Add(s.writeTimeout))
+	return s.Conn.WriteJSON(v)
 }
 
 // Hub tracks active tunnel sessions.

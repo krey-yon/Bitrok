@@ -135,7 +135,7 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		waitersMu.Unlock()
 	}()
 
-	if err := session.Conn.WriteJSON(frame); err != nil {
+	if err := session.WriteJSON(frame); err != nil {
 		slog.Error("proxy websocket write failed", "tunnel_id", tun.ID, "error", err)
 		http.Error(w, "relay error", http.StatusBadGateway)
 		_ = p.Store.LogRequest(ctx, tun.ID, r.Method, r.URL.Path, http.StatusBadGateway, int(time.Since(start).Milliseconds()), bytesIn, 0)

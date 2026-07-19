@@ -97,10 +97,7 @@ func WSConnectHandler(cfg *config.Config, st store.Store, hub *relay.Hub) http.H
 		conn.SetReadDeadline(time.Time{})
 
 		// Register session
-		session := &relay.Session{
-			TunnelID: id,
-			Conn:     conn,
-		}
+		session := relay.NewSession(id, conn, time.Duration(cfg.WSWriteTimeoutSec)*time.Second)
 		hub.Register(session)
 		defer hub.Unregister(session)
 
@@ -142,11 +139,7 @@ func WSConnectHandler(cfg *config.Config, st store.Store, hub *relay.Hub) http.H
 		for {
 			select {
 			case <-ticker.C:
-				if err := conn.SetWriteDeadline(time.Now().Add(time.Duration(cfg.WSWriteTimeoutSec) * time.Second)); err != nil {
-					slog.Debug("websocket set write deadline failed", "tunnel_id", id, "error", err)
-					return
-				}
-				if err := conn.WriteJSON(protocol.Ping{Type: string(protocol.TypePing)}); err != nil {
+				if err := session.WriteJSON(protocol.Ping{Type: string(protocol.TypePing)}); err != nil {
 					slog.Debug("websocket ping failed", "tunnel_id", id, "error", err)
 					return
 				}
