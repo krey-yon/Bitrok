@@ -7,15 +7,11 @@ import (
 	"strings"
 )
 
-// UsernameFromToken extracts the `username` claim from a JWT's payload without
-// verifying the signature. The token was obtained from the dashboard (trusted
-// source), and the relay server validates the signature on every call — here
-// we only read the claim the dashboard minted so we can build a deterministic
-// host without an extra API round-trip.
+// UsernameFromToken extracts a URL slug from a JWT payload without verifying
+// the signature. Prefer `username`, then fall back to other claims so older
+// tokens still work until the user re-logins.
 //
-// Returns ("", nil) when the token is well-formed but has no username claim
-// (e.g. a token minted before the username field existed); the caller prompts
-// or asks for a re-login.
+// Returns ("", nil) only when no usable claim exists.
 func UsernameFromToken(token string) (string, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
@@ -29,6 +25,33 @@ func UsernameFromToken(token string) (string, error) {
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return "", fmt.Errorf("invalid token claims: %w", err)
 	}
-	username, _ := claims["username"].(string)
-	return username, nil
+
+	// Preferred explicit claim (dashboard mints this).
+	if u := claimString(claims, "username"); u != "" {
+		if s := Slugify(u); s != "" {
+			return s, nil
+		}
+	}
+	// Other possible claim names.
+	for _, key := range []string{"preferred_username", "login", "name", "nickname"} {
+		if u := claimString(claims, key); u != "" {
+			if s := Slugify(u); s != "" {
+				return s, nil
+			}
+		}
+	}
+	// Email local-part (e.g. vikas@… → vikas). Last resort for legacy tokens.
+	if email := claimString(claims, "email"); email != "" {
+		local, _, _ := strings.Cut(email, "@")
+		if s := Slugify(local); s != "" {
+			return s, nil
+		}
+	}
+
+	return "", nil
+}
+
+func claimString(claims map[string]any, key string) string {
+	v, _ := claims[key].(string)
+	return strings.TrimSpace(v)
 }

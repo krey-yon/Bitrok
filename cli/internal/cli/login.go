@@ -154,6 +154,8 @@ func copyPasteLogin(relayURL, webURL string) error {
 		return err
 	}
 
+	username, _ := util.UsernameFromToken(token)
+
 	cfg, _ := config.Load()
 	if cfg == nil {
 		cfg = &config.CLIConfig{}
@@ -174,6 +176,13 @@ func copyPasteLogin(relayURL, webURL string) error {
 	fmt.Println(ui.KV("relay", relayURL))
 	fmt.Println(ui.KV("web", webURL))
 	fmt.Println(ui.KV("domain", cfg.DefaultDomain))
+	if username != "" {
+		fmt.Println(ui.KV("user", username))
+		ui.Hint(fmt.Sprintf("tunnels look like · myapp-%s.%s", username, cfg.DefaultDomain))
+	} else {
+		ui.Warn("token has no username — regenerate after deploying the latest dashboard")
+		ui.Hint("or use: bitrok myapp 3000 --host myapp-you.bitrok.tech")
+	}
 	fmt.Println()
 	ui.Hint("start a tunnel · bitrok myapp 3000")
 	fmt.Println()

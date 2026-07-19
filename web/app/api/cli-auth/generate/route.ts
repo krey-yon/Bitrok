@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { mintServerToken } from "@/lib/jwt";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getTrustedOrigins } from "@/lib/app-url";
+import { resolveUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
 
 function getClientIp(req: NextRequest): string {
@@ -56,16 +57,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Always embed a username claim — CLI builds hosts as app-<username>.domain.
+    // Legacy users may have null username; resolve + backfill before minting.
+    const sessionUser = session.user as {
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      username?: string | null;
+    };
+    const username = await resolveUsernameForUser(sessionUser.id, {
+      email: sessionUser.email,
+      name: sessionUser.name,
+      sessionUsername: sessionUser.username,
+    });
+
     const expiresInSeconds = TOKEN_TTL_DAYS * 24 * 60 * 60;
     const token = mintServerToken(
-      session.user.id,
-      session.user.email,
+      sessionUser.id,
+      sessionUser.email ?? undefined,
       expiresInSeconds,
-      session.user.username ?? undefined,
+      username,
     );
 
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
-    return NextResponse.json({ token, expiresAt }, { headers });
+    return NextResponse.json({ token, expiresAt, username }, { headers });
   } catch (error) {
     console.error("cli-auth generate error:", error);
     return NextResponse.json(

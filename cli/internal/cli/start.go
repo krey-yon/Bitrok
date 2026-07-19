@@ -99,7 +99,7 @@ func runStart(name string, port int, flags startFlags) error {
 			return fmt.Errorf("could not read auth token: %w", err)
 		}
 		if username == "" {
-			return fmt.Errorf("your token has no username; run `bitrok login` again to refresh it")
+			return fmt.Errorf("your token has no username claim\n\n  Generate a fresh token on the dashboard (after deploy that embeds username),\n  then:\n    bitrok login\n\n  Or force a host:\n    bitrok %s %d --host %s-you.bitrok.tech", slug, port, slug)
 		}
 		domain := cfg.DefaultDomain
 		if domain == "" {

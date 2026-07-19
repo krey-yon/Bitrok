@@ -3,6 +3,7 @@ import { mintServerToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getTrustedOrigins } from "@/lib/app-url";
+import { resolveUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
 
 function getClientIp(req: NextRequest): string {
@@ -84,12 +85,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const sessionUser = session.user as {
+      id: string;
+      email?: string | null;
+      name?: string | null;
+      username?: string | null;
+    };
+    const username = await resolveUsernameForUser(sessionUser.id, {
+      email: sessionUser.email,
+      name: sessionUser.name,
+      sessionUsername: sessionUser.username,
+    });
+
     // Generate JWT (30-day CLI token, same claims the relay server validates)
     const token = mintServerToken(
-      session.user.id,
-      session.user.email,
+      sessionUser.id,
+      sessionUser.email ?? undefined,
       30 * 24 * 60 * 60,
-      session.user.username ?? undefined,
+      username,
     );
 
     // Update auth request
