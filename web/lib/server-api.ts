@@ -44,10 +44,10 @@ export type LogsResponse = {
 };
 
 /**
- * Resolve the relay server base URL.
+ * Resolve the Go relay base URL.
  * 1. BITROK_SERVER_URL if set.
- * 2. http://localhost:8080 in dev (NEXT_PUBLIC_USE_LOCALHOST truthy).
- * 3. http://localhost:8080 as a last-resort fallback.
+ * 2. http://localhost:8080 when NEXT_PUBLIC_USE_LOCALHOST is truthy (local dev).
+ * 3. https://api.bitrok.tech in production.
  */
 function serverBaseUrl(): string {
   const explicit = process.env.BITROK_SERVER_URL;
@@ -59,6 +59,9 @@ function serverBaseUrl(): string {
     process.env.NEXT_PUBLIC_USE_LOCALHOST !== "0";
   if (useLocal) return "http://localhost:8080";
 
+  if (process.env.NODE_ENV === "production") {
+    return "https://api.bitrok.tech";
+  }
   return "http://localhost:8080";
 }
 

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { mintServerToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { getTrustedOrigins } from "@/lib/app-url";
 import { NextRequest, NextResponse } from "next/server";
 
 function getClientIp(req: NextRequest): string {
@@ -9,13 +10,11 @@ function getClientIp(req: NextRequest): string {
   return forwarded ? forwarded.split(",")[0].trim() : "unknown";
 }
 
-// Validate Origin header for CSRF protection
+// Validate Origin header for CSRF protection (www + apex + local).
 function validateOrigin(req: NextRequest): boolean {
   const origin = req.headers.get("origin");
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  ];
-  return !origin || allowedOrigins.includes(origin);
+  if (!origin) return true;
+  return getTrustedOrigins().includes(origin);
 }
 
 export async function POST(req: NextRequest) {

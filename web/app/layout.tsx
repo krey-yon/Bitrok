@@ -22,7 +22,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bitrok.dev";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bitrok.tech";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
