@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -58,6 +59,9 @@ func (h *TunnelHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "port must be between 1 and 65535")
 		return
 	}
+
+	// Normalize host: lowercase, strip trailing dots / accidental scheme.
+	req.Host = normalizeTunnelHost(req.Host)
 
 	tun, err := h.Store.CreateTunnel(r.Context(), userID, req.Name, req.Host, req.Port)
 	if err != nil {
@@ -155,4 +159,17 @@ func (h *TunnelHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("tunnel_mutated", "action", "delete", "user_id", userID, "tunnel_id", id)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// normalizeTunnelHost lowercases and strips scheme/trailing dots so proxy
+// lookups match (Traefik + browsers always send lowercase hosts).
+func normalizeTunnelHost(host string) string {
+	host = strings.TrimSpace(host)
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	if i := strings.IndexByte(host, '/'); i >= 0 {
+		host = host[:i]
+	}
+	host = strings.TrimSuffix(host, ".")
+	return strings.ToLower(host)
 }

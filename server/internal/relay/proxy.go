@@ -31,10 +31,10 @@ func NewProxyHandler(hub *Hub, st store.Store) *ProxyHandler {
 
 // ServeHTTP implements the http.Handler interface.
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	host := r.Host
-	if host == "" {
-		host = r.Header.Get("X-Forwarded-Host")
-	}
+	// Behind Coolify/Traefik, r.Host is often the *service* domain (api.bitrok.tech)
+	// while the public tunnel hostname is only in X-Forwarded-Host.
+	// Prefer forwarded host so GetTunnelByHost matches the reserved tunnel URL.
+	host := resolvePublicHost(r)
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -46,14 +46,19 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if tun == nil {
-		slog.Debug("proxy tunnel not found", "host", host)
+		slog.Warn("proxy tunnel not found",
+			"host", host,
+			"r_host", r.Host,
+			"x_forwarded_host", r.Header.Get("X-Forwarded-Host"),
+			"path", r.URL.Path,
+		)
 		http.Error(w, "tunnel not found", http.StatusNotFound)
 		return
 	}
 
 	session := p.Hub.Get(tun.ID)
 	if session == nil {
-		slog.Debug("proxy tunnel not active", "host", host, "tunnel_id", tun.ID)
+		slog.Warn("proxy tunnel not active", "host", host, "tunnel_id", tun.ID, "path", r.URL.Path)
 		http.Error(w, "tunnel not active", http.StatusServiceUnavailable)
 		return
 	}
@@ -99,14 +104,17 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			headers["X-Forwarded-Proto"] = "http"
 		}
 	}
-	headers["X-Forwarded-Host"] = r.Host
+	// Always present the *public* tunnel host to the local app, not the
+	// internal service name Traefik may have put in r.Host.
+	headers["X-Forwarded-Host"] = host
+	headers["Host"] = host
 
 	frame := protocol.ProxyRequest{
 		Type:    string(protocol.TypeRequest),
 		ReqID:   reqID,
 		Method:  r.Method,
 		Path:    r.URL.RequestURI(),
-		Host:    r.Host,
+		Host:    host,
 		Headers: headers,
 		BodyB64: base64.StdEncoding.EncodeToString(bodyBytes),
 	}
@@ -189,6 +197,56 @@ func HandleResponse(resp protocol.ProxyResponse) {
 
 func generateReqID() string {
 	return fmt.Sprintf("req_%d_%d", time.Now().UnixNano(), reqIDCounter.Add(1))
+}
+
+// resolvePublicHost returns the hostname the visitor used (for tunnel lookup).
+//
+// Priority:
+//  1. X-Forwarded-Host (first value) — set by Coolify/Traefik/Cloudflare
+//  2. r.Host — direct connections / when the proxy preserves the original host
+//
+// Strips :port and lowercases so DB host matches are stable.
+func resolvePublicHost(r *http.Request) string {
+	raw := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if raw != "" {
+		// "a.example.com, b.example.com" → first hop
+		if i := strings.IndexByte(raw, ','); i >= 0 {
+			raw = strings.TrimSpace(raw[:i])
+		}
+	}
+	if raw == "" {
+		raw = r.Host
+	}
+	raw = stripHostPort(raw)
+	return strings.ToLower(strings.TrimSpace(raw))
+}
+
+// stripHostPort removes a trailing :port from host, leaving IPv6 [addr] alone.
+func stripHostPort(host string) string {
+	// bracketed IPv6: [2001:db8::1]:443
+	if strings.HasPrefix(host, "[") {
+		if end := strings.IndexByte(host, ']'); end >= 0 {
+			return host[:end+1]
+		}
+		return host
+	}
+	// hostname:port or ipv4:port
+	if i := strings.LastIndexByte(host, ':'); i >= 0 {
+		port := host[i+1:]
+		if port != "" && isAllDigits(port) {
+			return host[:i]
+		}
+	}
+	return host
+}
+
+func isAllDigits(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func flattenHeaders(h http.Header) map[string]string {
