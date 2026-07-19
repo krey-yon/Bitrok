@@ -34,7 +34,8 @@ func NewRouter(cfg *config.Config, st store.Store, hub *relay.Hub) (*chi.Mux, *r
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger)
 
-	// Rate limiter per IP for public endpoints
+	// Rate limiter: control-plane only (/api/*, /tunnel/*). Tunnel visitor
+	// proxy traffic is not limited (would break real sites behind Traefik).
 	rateLimiter := newRateLimiter(cfg.RateLimitCapacity, cfg.RateLimitWindow)
 	r.Use(rateLimiter.Middleware)
 

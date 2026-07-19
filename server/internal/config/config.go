@@ -64,8 +64,10 @@ func Default() *Config {
 		IdleTimeout:       120,
 		ReadHeaderTimeout: 5,
 		ShutdownTimeout:   15,
-		// Rate limiter
-		RateLimitCapacity: 100,
+		// Rate limiter (control-plane only: /api/*, /tunnel/*).
+		// capacity tokens per windowSeconds ≈ steady rate capacity/window.
+		// Defaults: 600 req / 60s = 10/s sustained, burst 600 — enough for CLI.
+		RateLimitCapacity: 600,
 		RateLimitWindow:   60,
 		// WebSocket
 		WSMaxMessageSizeMB: 10,

@@ -148,25 +148,35 @@ func (w *responseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-// rateLimiter is a simple token-bucket rate limiter per IP.
+// rateLimiter is a token-bucket rate limiter per client IP.
+// It is applied only to control-plane paths (/api/*, /tunnel/*), never to
+// visitor tunnel proxy traffic (that would throttle real sites behind Traefik
+// where many clients share one edge IP).
 type rateLimiter struct {
 	mu       sync.Mutex
 	buckets  map[string]*bucket
-	capacity int
-	window   time.Duration
-	done     chan struct{}
+	capacity float64
+	// tokens refilled per second = capacity / windowSeconds
+	rate float64
+	done chan struct{}
 }
 
 type bucket struct {
-	tokens     int
+	tokens     float64
 	lastRefill time.Time
 }
 
 func newRateLimiter(capacity int, windowSeconds int) *rateLimiter {
+	if capacity < 1 {
+		capacity = 1
+	}
+	if windowSeconds < 1 {
+		windowSeconds = 1
+	}
 	rl := &rateLimiter{
 		buckets:  make(map[string]*bucket),
-		capacity: capacity,
-		window:   time.Duration(windowSeconds) * time.Second,
+		capacity: float64(capacity),
+		rate:     float64(capacity) / float64(windowSeconds),
 		done:     make(chan struct{}),
 	}
 	go rl.cleanup()
@@ -179,13 +189,18 @@ func (rl *rateLimiter) Stop() {
 
 func (rl *rateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr
-		if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-			ip = strings.Split(fwd, ",")[0]
-			ip = strings.TrimSpace(ip)
+		path := r.URL.Path
+
+		// Skip rate limit for health, install, ACME, and all tunnel *proxy*
+		// traffic (everything that is not /api/* or /tunnel/*).
+		if !shouldRateLimit(path) {
+			next.ServeHTTP(w, r)
+			return
 		}
 
+		ip := clientIP(r)
 		if !rl.allow(ip) {
+			w.Header().Set("Retry-After", "1")
 			Error(w, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
@@ -193,26 +208,67 @@ func (rl *rateLimiter) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// shouldRateLimit reports whether path is control-plane (CRUD / WS connect).
+// Visitor traffic to tunnel hosts is path like / or /app.js — not rate limited.
+func shouldRateLimit(path string) bool {
+	if path == "/health" || path == "/install" || strings.HasPrefix(path, "/.well-known/") {
+		return false
+	}
+	// Control plane only
+	return strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/tunnel/")
+}
+
+func clientIP(r *http.Request) string {
+	// Prefer real client behind Coolify/Traefik/Cloudflare
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ip := strings.TrimSpace(strings.Split(xff, ",")[0])
+		if ip != "" {
+			return stripPort(ip)
+		}
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return stripPort(strings.TrimSpace(xri))
+	}
+	return stripPort(r.RemoteAddr)
+}
+
+func stripPort(hostport string) string {
+	// [ipv6]:port or host:port
+	if strings.HasPrefix(hostport, "[") {
+		if i := strings.Index(hostport, "]:"); i >= 0 {
+			return hostport[1:i]
+		}
+		return strings.Trim(hostport, "[]")
+	}
+	if host, _, err := net.SplitHostPort(hostport); err == nil {
+		return host
+	}
+	return hostport
+}
+
+// allow implements a continuous token bucket: up to `capacity` tokens, refilled
+// at `capacity/window` tokens per second (e.g. 600/min ≈ 10/s steady state).
 func (rl *rateLimiter) allow(key string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
+	now := time.Now()
 	b, ok := rl.buckets[key]
 	if !ok {
-		b = &bucket{tokens: rl.capacity - 1, lastRefill: time.Now()}
-		rl.buckets[key] = b
+		rl.buckets[key] = &bucket{tokens: rl.capacity - 1, lastRefill: now}
 		return true
 	}
 
-	// Refill tokens based on elapsed time
-	elapsed := time.Since(b.lastRefill)
-	refill := int(elapsed / rl.window)
-	if refill > 0 {
-		b.tokens = min(b.tokens+refill, rl.capacity)
-		b.lastRefill = b.lastRefill.Add(time.Duration(refill) * rl.window)
+	elapsed := now.Sub(b.lastRefill).Seconds()
+	if elapsed > 0 {
+		b.tokens += elapsed * rl.rate
+		if b.tokens > rl.capacity {
+			b.tokens = rl.capacity
+		}
+		b.lastRefill = now
 	}
 
-	if b.tokens <= 0 {
+	if b.tokens < 1 {
 		return false
 	}
 	b.tokens--
@@ -220,6 +276,8 @@ func (rl *rateLimiter) allow(key string) bool {
 }
 
 func (rl *rateLimiter) cleanup() {
+	// Drop idle buckets after 10 minutes of inactivity.
+	const idleTTL = 10 * time.Minute
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 	for {
@@ -227,7 +285,7 @@ func (rl *rateLimiter) cleanup() {
 		case <-ticker.C:
 			rl.mu.Lock()
 			for k, b := range rl.buckets {
-				if time.Since(b.lastRefill) > rl.window*2 {
+				if time.Since(b.lastRefill) > idleTTL {
 					delete(rl.buckets, k)
 				}
 			}
