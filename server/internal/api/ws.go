@@ -56,7 +56,9 @@ func WSConnectHandler(cfg *config.Config, st store.Store, hub *relay.Hub) http.H
 
 		conn, err := newUpgrader(cfg).Upgrade(w, r, nil)
 		if err != nil {
-			slog.Debug("websocket upgrade failed", "tunnel_id", id, "error", err)
+			// Upgrade may have already written a status; log loudly so Coolify
+			// shows why /tunnel/.../connect returns 4xx/5xx.
+			slog.Error("websocket upgrade failed", "tunnel_id", id, "error", err)
 			return
 		}
 		defer conn.Close()
