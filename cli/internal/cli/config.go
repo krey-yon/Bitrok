@@ -50,9 +50,10 @@ var configGetCmd = &cobra.Command{
 
 		fmt.Println()
 		fmt.Println(ui.DetailCard("bitrok config", []ui.KVRow{
-			{Label: "Server", Value: masked.ServerURL},
-			{Label: "Token", Value: masked.Token},
-			{Label: "Domain", Value: masked.DefaultDomain},
+			{Label: "relay", Value: masked.ServerURL},
+			{Label: "web", Value: masked.WebURL},
+			{Label: "token", Value: masked.Token},
+			{Label: "domain", Value: masked.DefaultDomain},
 		}))
 		fmt.Println()
 		return nil
@@ -70,15 +71,20 @@ var configSetCmd = &cobra.Command{
 			return err
 		}
 		switch key {
-		case "server_url":
-			cfg.ServerURL = value
+		case "server_url", "server", "relay":
+			cfg.ServerURL = config.NormalizeURL(value)
+			if config.LooksLikeWebDashboard(cfg.ServerURL) {
+				ui.Warn("this looks like the web dashboard URL — CLI needs the Go relay (often :8080)")
+			}
+		case "web_url", "web":
+			cfg.WebURL = config.NormalizeURL(value)
 		case "token":
 			ui.Warn("token will be stored in plaintext — prefer 'bitrok auth' or BITROK_TOKEN env var")
 			cfg.Token = value
-		case "default_domain":
+		case "default_domain", "domain":
 			cfg.DefaultDomain = value
 		default:
-			return fmt.Errorf("unknown config key: %s", key)
+			return fmt.Errorf("unknown config key: %s (try server_url, web_url, token, default_domain)", key)
 		}
 		if err := config.Save(cfg); err != nil {
 			return err

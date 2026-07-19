@@ -3,8 +3,11 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -16,7 +19,9 @@ import (
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
-	loginCmd.Flags().StringP("server", "s", "", "Server URL (e.g. https://bitrok.tech)")
+	// --server is the Go *relay* (API + WebSocket). --web is the dashboard for minting tokens.
+	loginCmd.Flags().StringP("server", "s", "", "Relay server URL (default: https://api.bitrok.tech)")
+	loginCmd.Flags().String("web", "", "Dashboard URL for token page (default: https://bitrok.tech)")
 }
 
 var loginCmd = &cobra.Command{
@@ -25,50 +30,115 @@ var loginCmd = &cobra.Command{
 	Long: `Opens your browser to the Bitrok web dashboard token page.
 
 After signing in, click "Generate CLI Token", copy the token, and paste it
-back here. No local server, no ports — works in SSH and headless too.`,
+back here.
+
+The CLI talks to the Go relay (api.bitrok.tech), not the Next.js dashboard.
+
+  Production (default):
+    bitrok login
+    # web  → https://bitrok.tech
+    # relay → https://api.bitrok.tech
+
+  Local dev:
+    bitrok login --web http://localhost:3000 --server http://localhost:8080
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serverURL, _ := cmd.Flags().GetString("server")
+		webURL, _ := cmd.Flags().GetString("web")
+
 		if serverURL == "" {
-			// BITROK_SERVER env var overrides the saved config (e.g. point at
-			// http://localhost:3000 for local dev without editing config.json).
-			if envServer := os.Getenv("BITROK_SERVER"); envServer != "" {
-				serverURL = envServer
+			if env := os.Getenv("BITROK_SERVER"); env != "" {
+				serverURL = env
 			}
 		}
-		if serverURL == "" {
-			cfg, err := config.Load()
-			if err == nil && cfg.ServerURL != "" {
-				serverURL = cfg.ServerURL
+		if webURL == "" {
+			if env := os.Getenv("BITROK_WEB"); env != "" {
+				webURL = env
 			}
 		}
-		if serverURL == "" {
-			return fmt.Errorf("server URL required; use --server, BITROK_SERVER env var, or run 'bitrok auth' first")
+
+		// Fall back to saved config.
+		cfg, _ := config.Load()
+		if serverURL == "" && cfg != nil && cfg.ServerURL != "" {
+			serverURL = cfg.ServerURL
 		}
-		return copyPasteLogin(serverURL)
+		if webURL == "" && cfg != nil && cfg.WebURL != "" {
+			webURL = cfg.WebURL
+		}
+
+		// Production defaults when nothing is set.
+		if serverURL == "" && webURL == "" {
+			serverURL = config.DefaultRelayURL
+			webURL = config.DefaultWebURL
+		}
+
+		// Smart pairing: web-only or relay-only.
+		if serverURL == "" && webURL != "" {
+			if relay := config.DefaultRelayFromWeb(webURL); relay != "" {
+				serverURL = relay
+			} else {
+				serverURL = webURL
+			}
+		}
+		if webURL == "" && serverURL != "" {
+			if web := config.DefaultWebFromRelay(serverURL); web != "" {
+				webURL = web
+			} else {
+				webURL = config.DefaultWebURL
+			}
+		}
+
+		// Rewrite accidental web URLs stored as --server / BITROK_SERVER.
+		if config.LooksLikeWebDashboard(serverURL) {
+			if fixed := config.DefaultRelayFromWeb(serverURL); fixed != "" {
+				ui.Warn(fmt.Sprintf("%s is the web dashboard, not the relay", serverURL))
+				ui.Info(fmt.Sprintf("using relay %s", fixed))
+				if webURL == "" || webURL == serverURL {
+					webURL = serverURL
+					if config.NormalizeURL(webURL) == config.DefaultRelayURL {
+						webURL = config.DefaultWebURL
+					}
+					// If they passed bitrok.tech as server, web is that host.
+					if host := config.NormalizeURL(serverURL); host != "" {
+						webURL = host
+					}
+				}
+				serverURL = fixed
+			}
+		}
+
+		serverURL = config.NormalizeURL(serverURL)
+		webURL = config.NormalizeURL(webURL)
+		if serverURL == "" {
+			serverURL = config.DefaultRelayURL
+		}
+		if webURL == "" {
+			webURL = config.DefaultWebURL
+		}
+
+		return copyPasteLogin(serverURL, webURL)
 	},
 }
 
-func copyPasteLogin(serverURL string) error {
-	authURL := strings.TrimRight(serverURL, "/") + "/dashboard/cli-token"
+func copyPasteLogin(relayURL, webURL string) error {
+	authURL := strings.TrimRight(webURL, "/") + "/dashboard/cli-token"
 
 	fmt.Println()
-	fmt.Println()
-	fmt.Println(lipgloss.NewStyle().Foreground(ui.Amber).Bold(true).Render("  Opening browser for authentication..."))
+	fmt.Println(lipgloss.NewStyle().Foreground(ui.Accent).Bold(true).Render("  Opening browser for authentication..."))
 	fmt.Println()
 	ui.Info("If your browser doesn't open, visit:")
-	fmt.Printf("  %s\n", lipgloss.NewStyle().Foreground(ui.AmberLight).Underline(true).Render(authURL))
+	fmt.Printf("  %s\n", lipgloss.NewStyle().Foreground(ui.AccentLight).Underline(true).Render(authURL))
+	fmt.Println()
+	ui.Hint(fmt.Sprintf("relay · %s", relayURL))
 	fmt.Println()
 	util.OpenBrowser(authURL)
 
-	// Step 2: Prompt for token paste
 	ui.Info("After clicking \"Generate CLI Token\", copy the token and paste it below.")
 	fmt.Println()
 
-	promptStyle := lipgloss.NewStyle().Foreground(ui.Amber).Bold(true)
-
+	promptStyle := lipgloss.NewStyle().Foreground(ui.Accent).Bold(true)
 	fmt.Print(promptStyle.Render("  Paste token: "))
 
-	// Read the pasted token
 	reader := bufio.NewReader(os.Stdin)
 	raw, err := reader.ReadString('\n')
 	if err != nil {
@@ -80,12 +150,19 @@ func copyPasteLogin(serverURL string) error {
 		return fmt.Errorf("no token provided")
 	}
 
-	// Step 3: Save to config
+	if err := verifyRelayToken(relayURL, token); err != nil {
+		return err
+	}
+
 	cfg, _ := config.Load()
-	cfg.ServerURL = serverURL
+	if cfg == nil {
+		cfg = &config.CLIConfig{}
+	}
+	cfg.ServerURL = relayURL
+	cfg.WebURL = webURL
 	cfg.Token = token
-	if cfg.DefaultDomain == "" {
-		cfg.DefaultDomain = "bitrok.tech"
+	if cfg.DefaultDomain == "" || cfg.DefaultDomain == "example.com" {
+		cfg.DefaultDomain = config.DefaultDomain
 	}
 
 	if err := config.Save(cfg); err != nil {
@@ -94,8 +171,50 @@ func copyPasteLogin(serverURL string) error {
 
 	fmt.Println()
 	ui.Success("Authenticated successfully")
+	fmt.Println(ui.KV("relay", relayURL))
+	fmt.Println(ui.KV("web", webURL))
+	fmt.Println(ui.KV("domain", cfg.DefaultDomain))
 	fmt.Println()
-	ui.Hint("You can now use 'bitrok create', 'bitrok up', 'bitrok http', etc.")
+	ui.Hint("start a tunnel · bitrok myapp 3000")
 	fmt.Println()
 	return nil
+}
+
+// verifyRelayToken hits GET /api/tunnels with the JWT.
+func verifyRelayToken(relayURL, token string) error {
+	url := config.NormalizeURL(relayURL) + "/api/tunnels"
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{Timeout: 12 * time.Second}
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("cannot reach relay at %s: %w\n\n  Production relay is https://api.bitrok.tech", relayURL, err)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(res.Body, 512))
+	msg := strings.TrimSpace(string(body))
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusUnauthorized, http.StatusForbidden:
+		if config.LooksLikeWebDashboard(relayURL) || strings.Contains(msg, `"Unauthorized"`) {
+			return fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Point server_url at the Go relay, not the web app:\n    bitrok login\n    # → web https://bitrok.tech  ·  relay https://api.bitrok.tech\n\n  Response: %s", res.StatusCode, url, truncate(msg, 120))
+		}
+		return fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Token may be expired, or BITROK_JWT_SECRET on the web dashboard\n  does not match the secret on api.bitrok.tech.\n  Generate a fresh token at %s/dashboard/cli-token\n  Response: %s",
+			res.StatusCode, url, config.DefaultWebURL, truncate(msg, 120))
+	default:
+		return fmt.Errorf("unexpected response from relay (HTTP %d) at %s: %s", res.StatusCode, url, truncate(msg, 120))
+	}
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }

@@ -6,20 +6,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// YAMLConfig is the structure of bitrok.yaml.
+// YAMLConfig is the structure of bitrok.yml / bitrok.yaml.
 type YAMLConfig struct {
-	Server  string                 `yaml:"server"`
-	Token   string                 `yaml:"token"`
+	Server  string                `yaml:"server"`
+	Token   string                `yaml:"token"`
 	Tunnels map[string]YAMLTunnel `yaml:"tunnels"`
 }
 
-// YAMLTunnel defines a tunnel inside bitrok.yaml.
+// YAMLTunnel defines a tunnel inside bitrok.yml.
+//
+// Prefer `subdomain` (app label) — host is built as:
+//
+//	{subdomain}-{username}.bitrok.tech
+//
+// `host` overrides the full public hostname when set.
 type YAMLTunnel struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host      string `yaml:"host,omitempty"`
+	Port      int    `yaml:"port"`
+	Subdomain string `yaml:"subdomain,omitempty"`
 }
 
-// LoadYAML reads a bitrok.yaml file.
+// LoadYAML reads a bitrok.yml file.
 func LoadYAML(path string) (*YAMLConfig, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

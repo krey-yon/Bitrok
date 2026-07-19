@@ -5,11 +5,18 @@ import "fmt"
 // rgb is a truecolor RGB triple.
 type rgb struct{ r, g, b uint8 }
 
-// gradientStops sweeps dim → primary → bright amber, matching the web's amber glow.
+// gradientStops sweeps dim lime → primary → bright, matching the dashboard accent.
 var gradientStops = []rgb{
-	{0xb4, 0x53, 0x09}, // amber-700 — dim
-	{0xfb, 0xbf, 0x24}, // amber-400 — primary
-	{0xfc, 0xd3, 0x4d}, // amber-300 — bright
+	{0x4c, 0x72, 0x00}, // ring / deep lime
+	{0xb8, 0xf3, 0x4a}, // accent #b8f34a
+	{0xd2, 0xff, 0x7e}, // accent-light
+}
+
+// secondaryStops for orange highlights (secondary brand).
+var secondaryStops = []rgb{
+	{0xd9, 0x4d, 0x21},
+	{0xff, 0x70, 0x43},
+	{0xff, 0x8b, 0x66},
 }
 
 // lerp linearly interpolates between two uint8 channels.
@@ -41,9 +48,22 @@ func pickColor(stops []rgb, t float64) rgb {
 	}
 }
 
-// GradientAmber renders s as a truecolor amber gradient (dim→bright) using
-// raw ANSI escape codes. Self-contained — no external dependency.
+// GradientAccent renders s as a truecolor lime gradient (dim→bright).
+func GradientAccent(s string) string {
+	return gradientWith(s, gradientStops)
+}
+
+// GradientAmber is kept as an alias for call sites that still use the old name.
 func GradientAmber(s string) string {
+	return GradientAccent(s)
+}
+
+// GradientSecondary renders s with the orange secondary gradient.
+func GradientSecondary(s string) string {
+	return gradientWith(s, secondaryStops)
+}
+
+func gradientWith(s string, stops []rgb) string {
 	if s == "" {
 		return ""
 	}
@@ -55,7 +75,7 @@ func GradientAmber(s string) string {
 		if n > 1 {
 			t = float64(i) / float64(n-1)
 		}
-		c := pickColor(gradientStops, t)
+		c := pickColor(stops, t)
 		b += fmt.Sprintf("\x1b[38;2;%d;%d;%dm%c", c.r, c.g, c.b, r)
 	}
 	return b + "\x1b[0m"

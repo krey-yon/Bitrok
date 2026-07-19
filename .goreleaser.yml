@@ -41,9 +41,9 @@ archives:
 brews:
   - name: bitrok
     repository:
-      owner: yourusername
+      owner: krey-yon
       name: homebrew-bitrok
-    homepage: "https://github.com/yourusername/bitrok"
+    homepage: "https://github.com/krey-yon/Bitrok"
     description: "Deterministic self-hosted tunnels CLI"
     install: |
       bin.install "bitrok"

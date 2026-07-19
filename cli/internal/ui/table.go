@@ -31,16 +31,16 @@ func RenderTable(tunnels []api.Tunnel) string {
 	)
 
 	var lines []string
-	lines = append(lines, GradientAmber(header))
+	lines = append(lines, GradientAccent(header))
 	lines = append(lines, "  "+lipgloss.NewStyle().Foreground(DarkGray).Render(strings.Repeat("─", len(header)-2)))
 
 	for _, t := range tunnels {
 		var status, statusRendered string
 		if t.Active {
-			status = "● up"
+			status = "● live"
 			statusRendered = lipgloss.NewStyle().Foreground(Green).Bold(true).Render(status)
 		} else {
-			status = "○ down"
+			status = "○ off"
 			statusRendered = lipgloss.NewStyle().Foreground(Gray).Render(status)
 		}
 		line := fmt.Sprintf("  %-*s %-*s %-*d %-*s %s",

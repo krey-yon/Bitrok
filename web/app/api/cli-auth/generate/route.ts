@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       session.user.id,
       session.user.email,
       expiresInSeconds,
+      session.user.username ?? undefined,
     );
 
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();

@@ -2,218 +2,250 @@ package cli
 
 import (
 	"fmt"
-	"net/url"
 	"os"
-	"os/signal"
-	"sync"
+	"os/exec"
+	"path/filepath"
+	"syscall"
+	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/bitrok/bitrok/cli/internal/client"
 	"github.com/bitrok/bitrok/cli/internal/config"
+	"github.com/bitrok/bitrok/cli/internal/runstate"
 	"github.com/bitrok/bitrok/cli/internal/ui"
 	"github.com/bitrok/bitrok/cli/internal/util"
 )
 
 func init() {
 	rootCmd.AddCommand(upCmd)
-	upCmd.Flags().StringP("host", "H", "", "Ad-hoc host (no saved config)")
-	upCmd.Flags().IntP("port", "p", 0, "Ad-hoc port (no saved config)")
-	upCmd.Flags().StringP("config", "c", "", "Path to bitrok.yaml config")
+	upCmd.Flags().StringP("config", "c", "", "Path to bitrok.yml (default: ./bitrok.yml)")
+	upCmd.Flags().BoolP("detach", "d", false, "Run tunnels in background")
+	upCmd.Flags().Bool("open", false, "Open the first public URL in browser")
+	upCmd.Flags().Bool("no-anim", false, "Disable animations")
 }
 
 var upCmd = &cobra.Command{
 	Use:   "up [name]",
-	Short: "Start forwarding traffic for a tunnel",
-	Args:  cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		host, _ := cmd.Flags().GetString("host")
-		port, _ := cmd.Flags().GetInt("port")
-		configFile, _ := cmd.Flags().GetString("config")
+	Short: "Start tunnels defined in bitrok.yml",
+	Long: `Start multi-tunnel configs from bitrok.yml:
 
-		cfg, err := config.Load()
-		if err != nil {
-			return err
-		}
-		if err := cfg.Validate(); err != nil {
-			return err
-		}
+  tunnels:
+    api:
+      port: 3000
+      subdomain: myapp-api
+    web:
+      port: 5173
+      subdomain: myapp-web
 
-		if configFile != "" {
-			return runFromYAML(cfg, configFile)
-		}
-
-		if host != "" && port != 0 {
-			if err := util.ValidateHostname(host); err != nil {
-				return err
-			}
-			if err := util.ValidatePort(port); err != nil {
-				return err
-			}
-			return fmt.Errorf("ad-hoc mode requires server-side registration first; use 'bitrok create'")
-		}
-
-		if len(args) == 0 {
-			return fmt.Errorf("tunnel name required (or use --config)")
-		}
-		name := args[0]
-
-		reg, err := config.LoadRegistry()
-		if err != nil {
-			return fmt.Errorf("failed to load local tunnel registry: %w", err)
-		}
-		t := reg.FindByName(name)
-		if t == nil {
-			return fmt.Errorf("no tunnel found with name %s", name)
-		}
-
-		localAddr := fmt.Sprintf("localhost:%d", t.Port)
-		if err := util.ResolveLocalAddr(t.Port); err != nil {
-			return err
-		}
-
-		return runTunnel(cfg.ServerURL, cfg.Token, t.ID, t.Host, localAddr, nil)
-	},
+  bitrok up          # start all
+  bitrok up api      # start one named entry
+`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runUp,
 }
 
-// runTunnel starts a tunnel with the TUI dashboard.
-func runTunnel(serverURL, token, tunnelID, host, localAddr string, cleanup func()) error {
-	return runTunnelWithUI(serverURL, token, tunnelID, host, localAddr, true, cleanup)
-}
-
-// runTunnelHeadless runs a tunnel without the TUI (YAML multi-tunnel mode).
-func runTunnelHeadless(serverURL, token, tunnelID, host, localAddr string) error {
-	return runTunnelWithUI(serverURL, token, tunnelID, host, localAddr, false, nil)
-}
-
-func publicURLFor(serverURL, host string) string {
-	scheme := "https"
-	if u, err := url.Parse(serverURL); err == nil && u.Scheme == "http" {
-		scheme = "http"
-	}
-	return scheme + "://" + host
-}
-
-func runTunnelWithUI(serverURL, token, tunnelID, host, localAddr string, showUI bool, cleanup func()) error {
-	pubURL := publicURLFor(serverURL, host)
-	if showUI {
-		ui.PrintBootBanner("v0.1.0")
-		// Fake but delightful startup sequence — the truthful state lives in the dashboard.
-		tunnelLabel := host
-		ui.BootSequence(ui.DefaultBootSteps(tunnelLabel))
-	}
-	fmt.Printf("  %s %s %s %s\n",
-		lipgloss.NewStyle().Foreground(ui.Amber).Render("⟢"),
-		lipgloss.NewStyle().Foreground(ui.AmberLight).Render(pubURL),
-		lipgloss.NewStyle().Foreground(ui.DarkGray).Render("→"),
-		lipgloss.NewStyle().Foreground(ui.White).Render(localAddr))
-	fmt.Println()
-
-	session := client.NewTunnelSession(serverURL, token, tunnelID, localAddr)
-
-	var p *tea.Program
-	if showUI {
-		dash := ui.NewDashboard(pubURL, localAddr)
-		session.Logs = make(chan client.RequestLog, 256)
-		p = tea.NewProgram(dash, tea.WithAltScreen())
-		go func() {
-			for log := range session.Logs {
-				p.Send(ui.RequestLogMsg{
-					Time:      log.Time,
-					Method:    log.Method,
-					Path:      log.Path,
-					Status:    log.Status,
-					Latency:   log.Latency,
-					ReqBytes:  log.ReqBytes,
-					RespBytes: log.RespBytes,
-				})
-			}
-		}()
+func runUp(cmd *cobra.Command, args []string) error {
+	configFile, _ := cmd.Flags().GetString("config")
+	detach, _ := cmd.Flags().GetBool("detach")
+	openFirst, _ := cmd.Flags().GetBool("open")
+	noAnim, _ := cmd.Flags().GetBool("no-anim")
+	if noAnim {
+		ui.NoAnim = true
 	}
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- session.Start()
-	}()
-
-	if showUI {
-		if _, err := p.Run(); err != nil {
-			session.Stop()
-			if cleanup != nil {
-				cleanup()
-			}
-			return err
-		}
-		// TUI exited (user pressed q / ctrl+c) — stop the session
-		session.Stop()
-	} else {
-		// Headless mode: single signal handler, one SIGINT exits
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt)
-		<-sigCh
-		session.Stop()
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
 	}
 
-	// Run cleanup (e.g. delete temp tunnel for `bitrok http`)
-	if cleanup != nil {
-		cleanup()
+	path, err := resolveYAMLPath(configFile)
+	if err != nil {
+		return err
 	}
-
-	select {
-	case err := <-errCh:
-		if err != nil && err.Error() != "context canceled" {
-			return fmt.Errorf("tunnel error: %w", err)
-		}
-	default:
-	}
-
-	fmt.Println("Tunnel stopped.")
-	return nil
-}
-
-func runFromYAML(cfg *config.CLIConfig, path string) error {
 	yamlCfg, err := config.LoadYAML(path)
 	if err != nil {
-		return fmt.Errorf("load yaml: %w", err)
+		return fmt.Errorf("load %s: %w", path, err)
 	}
-
 	if yamlCfg.Server != "" {
 		cfg.ServerURL = yamlCfg.Server
 	}
 	if yamlCfg.Token != "" {
 		cfg.Token = yamlCfg.Token
 	}
-
-	reg, err := config.LoadRegistry()
-	if err != nil {
-		return fmt.Errorf("failed to load local tunnel registry: %w", err)
+	if len(yamlCfg.Tunnels) == 0 {
+		return fmt.Errorf("no tunnels defined in %s", path)
 	}
 
-	var wg sync.WaitGroup
-	var firstErr error
-	var mu sync.Mutex
+	username, err := util.UsernameFromToken(cfg.Token)
+	if err != nil {
+		return err
+	}
+	domain := cfg.DefaultDomain
+	if domain == "" {
+		domain = "bitrok.tech"
+	}
 
-	for name, t := range yamlCfg.Tunnels {
-		lt := reg.FindByName(name)
-		if lt == nil {
-			fmt.Fprintf(os.Stderr, "tunnel %s not found in local registry, skipping\n", name)
+	entries := yamlCfg.Tunnels
+	if len(args) == 1 {
+		want := args[0]
+		t, ok := entries[want]
+		if !ok {
+			return fmt.Errorf("tunnel %q not found in %s", want, path)
+		}
+		entries = map[string]config.YAMLTunnel{want: t}
+	}
+
+	if !noAnim {
+		ui.PrintAnimatedBootBanner("v0.3.0")
+	}
+	ui.Section("starting from " + filepath.Base(path))
+
+	// Single named tunnel in foreground with TUI.
+	if len(entries) == 1 && !detach {
+		for key, t := range entries {
+			return startYAMLEntry(cfg, key, t, username, domain, startFlags{
+				Open:   openFirst,
+				NoAnim: noAnim,
+			})
+		}
+	}
+
+	// Multi-tunnel or -d: spawn each as detached child `bitrok <name> <port> -d --host …`
+	var firstURL string
+	var firstErr error
+	for key, t := range entries {
+		appName, host, port, err := yamlIdentity(key, t, username, domain)
+		if err != nil {
+			ui.ErrorOut(fmt.Sprintf("%s: %v", key, err))
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
-		wg.Add(1)
-		go func(n, h, id string, p int) {
-			defer wg.Done()
-			if err := runTunnelHeadless(cfg.ServerURL, cfg.Token, id, h, fmt.Sprintf("localhost:%d", p)); err != nil {
-				mu.Lock()
-				if firstErr == nil {
-					firstErr = err
-				}
-				mu.Unlock()
+		if err := spawnDetachedTunnel(appName, host, port); err != nil {
+			ui.ErrorOut(fmt.Sprintf("%s: %v", key, err))
+			if firstErr == nil {
+				firstErr = err
 			}
-		}(name, t.Host, lt.ID, t.Port)
+			continue
+		}
+		// Wait briefly for meta.
+		pub := waitMetaURL(appName, 12*time.Second)
+		if pub == "" {
+			ui.Warn(fmt.Sprintf("%s: started but URL not ready yet", appName))
+			continue
+		}
+		ui.Success(fmt.Sprintf("%s  %s", appName, pub))
+		if firstURL == "" {
+			firstURL = pub
+		}
 	}
 
-	wg.Wait()
-	return firstErr
+	if openFirst && firstURL != "" {
+		util.OpenBrowser(firstURL)
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	if firstURL == "" {
+		return fmt.Errorf("no tunnels started")
+	}
+	ui.Hint("bitrok list   ·   bitrok stop <name>")
+	return nil
 }
+
+func startYAMLEntry(cfg *config.CLIConfig, key string, t config.YAMLTunnel, username, domain string, flags startFlags) error {
+	appName, host, port, err := yamlIdentity(key, t, username, domain)
+	if err != nil {
+		return err
+	}
+	flags.Host = host
+	_ = cfg
+	return runStart(appName, port, flags)
+}
+
+func yamlIdentity(key string, t config.YAMLTunnel, username, domain string) (name, host string, port int, err error) {
+	if t.Port == 0 {
+		return "", "", 0, fmt.Errorf("port is required")
+	}
+	port = t.Port
+	sub := t.Subdomain
+	if sub == "" {
+		sub = key
+	}
+	name = util.Slugify(sub)
+	if name == "" {
+		name = util.Slugify(key)
+	}
+	if t.Host != "" {
+		host = t.Host
+	} else {
+		user := util.Slugify(username)
+		if user == "" {
+			host = name + "." + domain
+		} else {
+			host = name + "-" + user + "." + domain
+		}
+	}
+	return name, host, port, nil
+}
+
+func spawnDetachedTunnel(name, host string, port int) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	_ = runstate.RemoveMeta(name)
+
+	if err := os.MkdirAll(runstate.RunDir(), 0700); err != nil {
+		return err
+	}
+	logFile, err := os.OpenFile(runstate.LogPath(name), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return err
+	}
+	// Child: bitrok __start name port --host host  (with BITROK_DETACHED=1)
+	cmd := exec.Command(exe, "__start", name, fmt.Sprintf("%d", port), "--host", host, "--no-anim")
+	cmd.Env = append(os.Environ(), runstate.DetachEnv+"=1")
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	cmd.Stdin = nil
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		logFile.Close()
+		return err
+	}
+	logFile.Close()
+	return nil
+}
+
+func waitMetaURL(name string, timeout time.Duration) string {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		m, err := runstate.ReadMeta(name)
+		if err == nil && m != nil && m.PublicURL != "" && runstate.Alive(m) {
+			return m.PublicURL
+		}
+		time.Sleep(120 * time.Millisecond)
+	}
+	return ""
+}
+
+func resolveYAMLPath(flag string) (string, error) {
+	if flag != "" {
+		if _, err := os.Stat(flag); err != nil {
+			return "", fmt.Errorf("config file: %w", err)
+		}
+		return flag, nil
+	}
+	for _, c := range []string{"bitrok.yml", "bitrok.yaml", ".bitrok.yml"} {
+		if _, err := os.Stat(c); err == nil {
+			return c, nil
+		}
+	}
+	return "", fmt.Errorf("no bitrok.yml found (looked for bitrok.yml, bitrok.yaml); pass --config")
+}
+

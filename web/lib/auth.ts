@@ -16,6 +16,13 @@ export const auth = betterAuth({
   }),
   secret: requireEnv("BETTER_AUTH_SECRET"),
   baseURL: requireEnv("BETTER_AUTH_URL"),
+  user: {
+    // `username` is the URL slug used in deterministic tunnel hosts
+    // (app-username.bitrok.tech). Populated from the GitHub login at signup.
+    additionalFields: {
+      username: { type: "string", required: false, input: true, returned: true },
+    },
+  },
   socialProviders: {
     github: {
       clientId: requireEnv("GITHUB_CLIENT_ID"),
@@ -28,6 +35,7 @@ export const auth = betterAuth({
           email: profile.email || `${profile.id}@users.noreply.github.com`,
           name: profile.name || profile.login,
           image: profile.avatar_url,
+          username: profile.login,
         };
       },
     },

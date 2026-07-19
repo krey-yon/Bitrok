@@ -6,10 +6,10 @@ import "github.com/charmbracelet/lipgloss"
 var (
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(Amber)
+			Foreground(Accent)
 
 	SubtitleStyle = lipgloss.NewStyle().
-			Foreground(AmberLight)
+			Foreground(AccentLight)
 
 	LabelStyle = lipgloss.NewStyle().
 			Foreground(Gray)
@@ -25,6 +25,6 @@ var (
 
 	BorderStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(Amber).
+			BorderForeground(Accent).
 			Padding(1, 2)
 )

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	_ "embed"
 	"net/http"
 	"sort"
 	"strings"
@@ -17,6 +18,9 @@ import (
 
 	bitrokapi "github.com/bitrok/bitrok/pkg/api"
 )
+
+//go:embed install.sh
+var installScript string
 
 // Version is set at build time via ldflags.
 var Version = "dev"
@@ -39,12 +43,20 @@ func NewRouter(cfg *config.Config, st store.Store, hub *relay.Hub) (*chi.Mux, *r
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			if path == "/health" || strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/tunnel/") || strings.HasPrefix(path, "/.well-known/") {
+			if path == "/health" || path == "/install" || strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/tunnel/") || strings.HasPrefix(path, "/.well-known/") {
 				next.ServeHTTP(w, r)
 				return
 			}
 			proxy.ServeHTTP(w, r)
 		})
+	})
+
+	// Public install script: curl -fsSL https://bitrok.tech/install | sh
+	r.Get("/install", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+		w.Header().Set("Content-Disposition", "inline; filename=\"install.sh\"")
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		_, _ = w.Write([]byte(installScript))
 	})
 
 	// Public health check

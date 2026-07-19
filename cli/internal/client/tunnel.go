@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/bitrok/bitrok/cli/internal/util"
 	"github.com/bitrok/bitrok/pkg/protocol"
 )
 
@@ -48,6 +49,7 @@ type TunnelSession struct {
 	Token      string
 	TunnelID   string
 	LocalAddr  string
+	AllowIPs   []string // optional CIDR allowlist (client-side filter)
 	conn       *websocket.Conn
 	done       chan struct{}
 	stopOnce   sync.Once
@@ -56,6 +58,15 @@ type TunnelSession struct {
 	httpClient *http.Client
 	writeMu    sync.Mutex // protects conn.WriteJSON from concurrent goroutines
 	Logs       chan RequestLog
+	// Stats hook — called after each request (for PID meta updates).
+	OnStats func(total int64, p50ms int64, bytesIn, bytesOut int64)
+
+	// in-memory counters for OnStats
+	statMu     sync.Mutex
+	statCount  int64
+	statIn     int64
+	statOut    int64
+	statLats   []time.Duration
 }
 
 // NewTunnelSession creates a new tunnel session.
@@ -235,6 +246,20 @@ func (t *TunnelSession) readLoop() error {
 func (t *TunnelSession) handleRequest(req protocol.ProxyRequest) {
 	start := time.Now()
 
+	// Client-side IP allowlist (visitor IP from X-Forwarded-For).
+	if len(t.AllowIPs) > 0 {
+		al, err := util.ParseAllowList(t.AllowIPs)
+		if err == nil && !al.Empty() {
+			ip := util.ClientIPFromHeaders(req.Headers)
+			if ip == nil || !al.Contains(ip) {
+				t.sendResponse(req.ReqID, 403, map[string]string{"Content-Type": "text/plain"}, base64.StdEncoding.EncodeToString([]byte("forbidden: ip not allowlisted")))
+				t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: 403, ReqID: req.ReqID, Latency: time.Since(start)})
+				t.recordStats(0, 0, time.Since(start))
+				return
+			}
+		}
+	}
+
 	body, err := base64.StdEncoding.DecodeString(req.BodyB64)
 	if err != nil {
 		t.sendResponse(req.ReqID, 400, nil, "")
@@ -304,7 +329,9 @@ func (t *TunnelSession) handleRequest(req protocol.ProxyRequest) {
 	}
 
 	t.sendResponse(req.ReqID, resp.StatusCode, respHeaders, base64.StdEncoding.EncodeToString(respBody))
-	t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: resp.StatusCode, ReqID: req.ReqID, ReqBytes: len(body), RespBytes: len(respBody), Latency: time.Since(start)})
+	lat := time.Since(start)
+	t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: resp.StatusCode, ReqID: req.ReqID, ReqBytes: len(body), RespBytes: len(respBody), Latency: lat})
+	t.recordStats(int64(len(body)), int64(len(respBody)), lat)
 }
 
 // emitLog sends a request log to the TUI if a channel is wired.
@@ -317,6 +344,41 @@ func (t *TunnelSession) emitLog(l RequestLog) {
 	case t.Logs <- l:
 	default:
 	}
+}
+
+func (t *TunnelSession) recordStats(bytesIn, bytesOut int64, lat time.Duration) {
+	t.statMu.Lock()
+	t.statCount++
+	t.statIn += bytesIn
+	t.statOut += bytesOut
+	t.statLats = append(t.statLats, lat)
+	if len(t.statLats) > 200 {
+		t.statLats = t.statLats[len(t.statLats)-200:]
+	}
+	count, in, out := t.statCount, t.statIn, t.statOut
+	p50 := p50Of(t.statLats)
+	t.statMu.Unlock()
+	if t.OnStats != nil {
+		t.OnStats(count, p50.Milliseconds(), in, out)
+	}
+}
+
+func p50Of(lats []time.Duration) time.Duration {
+	if len(lats) == 0 {
+		return 0
+	}
+	sorted := make([]time.Duration, len(lats))
+	copy(sorted, lats)
+	for i := 1; i < len(sorted); i++ {
+		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
+			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
+		}
+	}
+	mid := len(sorted) / 2
+	if len(sorted)%2 == 0 {
+		return (sorted[mid-1] + sorted[mid]) / 2
+	}
+	return sorted[mid]
 }
 
 func (t *TunnelSession) sendResponse(reqID string, status int, headers map[string]string, bodyB64 string) {

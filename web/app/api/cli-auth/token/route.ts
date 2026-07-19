@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       session.user.id,
       session.user.email,
       30 * 24 * 60 * 60,
+      session.user.username ?? undefined,
     );
 
     // Update auth request

@@ -21,11 +21,15 @@ const JWT_ISSUER = "bitrok";
  * @param email     Optional email, placed in the payload for traceability.
  * @param ttlSeconds Lifetime in seconds. Default 60 (server-to-server).
  *                   CLI tokens pass 30 * 24 * 60 * 60.
+ * @param username  Optional URL slug, placed in the payload so the CLI can
+ *                  build deterministic hosts (app-username.bitrok.tech) without
+ *                  an extra API round-trip. Only set on long-lived CLI tokens.
  */
 export function mintServerToken(
   userId: string,
   email?: string,
   ttlSeconds: number = 60,
+  username?: string,
 ): string {
   const secret = process.env.BITROK_JWT_SECRET;
   if (!secret) {
@@ -34,12 +38,15 @@ export function mintServerToken(
     );
   }
 
-  const payload: { sub: string; email?: string; type: string } = {
+  const payload: { sub: string; email?: string; username?: string; type: string } = {
     sub: userId,
     type: "cli",
   };
   if (email) {
     payload.email = email;
+  }
+  if (username) {
+    payload.username = username;
   }
 
   return jwt.sign(payload, secret, {

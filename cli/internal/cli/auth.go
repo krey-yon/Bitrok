@@ -33,24 +33,33 @@ Using the environment variable is recommended to avoid exposing the token in she
 		}
 
 		if server == "" {
-			return fmt.Errorf("server URL is required; use --server flag")
+			return fmt.Errorf("relay server URL is required; use --server http://localhost:8080")
 		}
 		if token == "" {
 			return fmt.Errorf("auth token is required; use --token flag or BITROK_TOKEN env var")
 		}
 
+		server = config.ResolveRelayURL(server)
+
 		cfg, _ := config.Load()
 		cfg.ServerURL = server
+		if cfg.WebURL == "" {
+			if web := config.DefaultWebFromRelay(server); web != "" {
+				cfg.WebURL = web
+			} else {
+				cfg.WebURL = config.DefaultWebURL
+			}
+		}
 		cfg.Token = token
 		if cfg.DefaultDomain == "" {
-			cfg.DefaultDomain = "bitrok.tech"
+			cfg.DefaultDomain = config.DefaultDomain
 		}
 
 		if err := config.Save(cfg); err != nil {
 			return err
 		}
 		ui.Success("Authenticated successfully")
-		fmt.Println(ui.KV("Server", server))
+		fmt.Println(ui.KV("relay", server))
 		return nil
 	},
 }

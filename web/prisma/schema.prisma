@@ -11,6 +11,9 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   name          String?
+  // URL slug used in deterministic tunnel hosts: <app>-<username>.bitrok.tech.
+  // Populated from the GitHub login at signup; backfilled for existing users.
+  username      String?   @unique
   emailVerified Boolean   @default(false)
   image         String?
   createdAt     DateTime  @default(now())

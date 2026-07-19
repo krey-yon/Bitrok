@@ -173,16 +173,12 @@ func (m DashboardModel) View() string {
 	uptime := time.Since(m.StartTime).Round(time.Second)
 
 	// ── HEADER PANEL ────────────────────────────────────────────────
-	// Left: gradient logo text  Right: status pill + uptime
-	statusPill := lipgloss.NewStyle().
-		Foreground(Green).
-		Bold(true).
-		Render("● LIVE")
+	statusPill := LivePill()
 	uptimeStr := lipgloss.NewStyle().
-		Foreground(Gray).
-		Render(fmt.Sprintf("up %s", uptime))
+		Foreground(LightGray).
+		Render(fmt.Sprintf("%s %s", IconClock, uptime))
 
-	logoText := GradientAmber("BITROK")
+	logoText := GradientAccent("BITROK")
 	headerLeft := "  " + logoText + "  " + lipgloss.NewStyle().Foreground(DarkGray).Render("│") + "  " + statusPill
 	headerRight := uptimeStr + "  "
 	header := padBetween(headerLeft, headerRight, width)
@@ -190,32 +186,31 @@ func (m DashboardModel) View() string {
 	// ── URL PANEL ───────────────────────────────────────────────────
 	urlLine := fmt.Sprintf("  %s %s %s %s",
 		m.Spinner.View(),
-		lipgloss.NewStyle().Foreground(AmberLight).Bold(true).Underline(true).Render(m.PublicURL),
-		lipgloss.NewStyle().Foreground(DarkGray).Render("→"),
+		lipgloss.NewStyle().Foreground(AccentLight).Bold(true).Underline(true).Render(m.PublicURL),
+		lipgloss.NewStyle().Foreground(DarkGray).Render(IconArrow),
 		lipgloss.NewStyle().Foreground(White).Render(m.LocalAddr),
 	)
 
 	// ── STATS PANEL ─────────────────────────────────────────────────
 	p50 := m.p50Latency()
 	stats := fmt.Sprintf("  %s   %s   %s   %s   %s",
-		statLabel("Requests", fmt.Sprintf("%d", m.TotalRequests)),
-		statLabel("↑ Out", util.FormatBytes(m.TotalReqBytes)),
-		statLabel("↓ In", util.FormatBytes(m.TotalRespBytes)),
+		statLabel("reqs", fmt.Sprintf("%d", m.TotalRequests)),
+		statLabel("↑", util.FormatBytes(m.TotalReqBytes)),
+		statLabel("↓", util.FormatBytes(m.TotalRespBytes)),
 		statLabel("p50", fmt.Sprintf("%dms", p50.Milliseconds())),
 		statLabel("2xx/4xx/5xx",
 			fmt.Sprintf("%s/%s/%s",
 				lipgloss.NewStyle().Foreground(Green).Render(fmt.Sprintf("%d", m.countStatus(200, 299))),
-				lipgloss.NewStyle().Foreground(AmberLight).Render(fmt.Sprintf("%d", m.countStatus(400, 499))),
+				lipgloss.NewStyle().Foreground(Yellow).Render(fmt.Sprintf("%d", m.countStatus(400, 499))),
 				lipgloss.NewStyle().Foreground(Red).Render(fmt.Sprintf("%d", m.countStatus(500, 599))),
 			)),
 	)
 
 	// ── LOGS PANEL ──────────────────────────────────────────────────
-	logsHeader := "  " + GradientAmber("TRAFFIC") + "  " +
+	logsHeader := "  " + GradientAccent("TRAFFIC") + "  " +
 		lipgloss.NewStyle().Foreground(DarkGray).Render(strings.Repeat("─", max(0, width-14)))
 
 	var logLines []string
-	// Reserve rows: header(1) + url(1) + gap + stats(1) + gap + logsHeader(1) + gap + footer(3 for pet)
 	maxLogs := m.Height - 16
 	if maxLogs < 3 {
 		maxLogs = 3
@@ -224,22 +219,27 @@ func (m DashboardModel) View() string {
 	if start < 0 {
 		start = 0
 	}
-	for _, l := range m.Logs[start:] {
+	for i, l := range m.Logs[start:] {
 		statusColor := Green
 		if l.Status >= 500 {
 			statusColor = Red
 		} else if l.Status >= 400 {
-			statusColor = AmberLight
+			statusColor = Yellow
 		} else if l.Status >= 300 {
-			statusColor = Amber
+			statusColor = Secondary
 		}
-		logLines = append(logLines, fmt.Sprintf("  %s  %s %s  %s  %s",
+		line := fmt.Sprintf("  %s  %s %s  %s  %s",
 			lipgloss.NewStyle().Foreground(Gray).Render(l.Time.Format("15:04:05")),
-			lipgloss.NewStyle().Foreground(AmberLight).Bold(true).Render(fmt.Sprintf("%-6s", l.Method)),
+			lipgloss.NewStyle().Foreground(AccentLight).Bold(true).Render(fmt.Sprintf("%-6s", l.Method)),
 			lipgloss.NewStyle().Foreground(White).Render(truncate(l.Path, 30)),
 			lipgloss.NewStyle().Foreground(statusColor).Bold(true).Render(fmt.Sprintf("%3d", l.Status)),
 			lipgloss.NewStyle().Foreground(Gray).Render(fmt.Sprintf("%dms", l.Latency.Milliseconds())),
-		))
+		)
+		// Alternating row tint via subtle dimming every other line.
+		if i%2 == 1 {
+			line = lipgloss.NewStyle().Faint(true).Render(line)
+		}
+		logLines = append(logLines, line)
 	}
 	if len(logLines) == 0 {
 		logLines = append(logLines, "  "+lipgloss.NewStyle().Foreground(Gray).Italic(true).Render("Waiting for traffic…"))
@@ -248,15 +248,13 @@ func (m DashboardModel) View() string {
 	// ── FOOTER PANEL — Pet + keys ──────────────────────────────────
 	petBlock := RenderPet(m.petMood, m.tick)
 	petLines := strings.Split(petBlock, "\n")
-	// Pet name + speech
-	petName := lipgloss.NewStyle().Foreground(AmberLight).Bold(true).Render("Bit")
-	petMsg := lipgloss.NewStyle().Foreground(Gray).Italic(true).Render(petSaying(m.petMood, m.TotalRequests))
+	petName := lipgloss.NewStyle().Foreground(AccentLight).Bold(true).Render("Bit")
+	petMsg := lipgloss.NewStyle().Foreground(LightGray).Italic(true).Render(petSaying(m.petMood, m.TotalRequests))
 
 	keys := lipgloss.NewStyle().
-		Foreground(DarkGray).
+		Foreground(Gray).
 		Render("[o] open   [q] quit")
 
-	// Compose footer: pet on left, message + keys stacked on right
 	footerRight := []string{
 		"",
 		"  " + petName + "  " + petMsg,
@@ -276,13 +274,13 @@ func (m DashboardModel) View() string {
 	}
 	footer := strings.Join(footerLines, "\n")
 
-	// ── ASSEMBLE — with dividers between panels ────────────────────
+	// ── ASSEMBLE ────────────────────────────────────────────────────
 	divider := "  " + lipgloss.NewStyle().Foreground(DarkGray).Render(strings.Repeat("─", max(0, width-4)))
 
-	// Breathing border: subtly shift border color between Amber ↔ AmberDim
-	borderColor := Amber
-	if m.tick%4 == 2 {
-		borderColor = AmberDim
+	// Border tracks connection: solid accent (live).
+	borderColor := Accent
+	if m.tick%6 == 3 {
+		borderColor = AccentDim
 	}
 
 	body := strings.Join([]string{
