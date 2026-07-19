@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
-import { getAppURL, getTrustedOrigins } from "@/lib/app-url";
+import { getAuthBaseURL, getTrustedOrigins } from "@/lib/app-url";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -11,14 +11,19 @@ function requireEnv(name: string): string {
   return value;
 }
 
-// Prefer explicit BETTER_AUTH_URL; fall back to public app URL so a missing
-// env doesn't silently use localhost on Vercel.
-const baseURL = (process.env.BETTER_AUTH_URL || getAppURL()).replace(/\/+$/, "");
+// Never throw on module load during `next build` — Vercel collects page data
+// with NODE_ENV=production even when BETTER_AUTH_URL is still the local default.
+// getAuthBaseURL() rewrites localhost → https://bitrok.tech on Vercel/prod.
+const baseURL = getAuthBaseURL();
 
-if (process.env.NODE_ENV === "production" && /localhost|127\.0\.0\.1/.test(baseURL)) {
-  throw new Error(
-    `BETTER_AUTH_URL/baseURL must not be localhost in production (got ${baseURL}). ` +
-      `Set BETTER_AUTH_URL=https://bitrok.tech and NEXT_PUBLIC_APP_URL=https://bitrok.tech on Vercel.`,
+if (
+  process.env.VERCEL_ENV === "production" &&
+  /localhost|127\.0\.0\.1/.test(process.env.BETTER_AUTH_URL || "")
+) {
+  // Soft warning only — build must succeed; runtime uses rewritten baseURL.
+  console.warn(
+    `[bitrok] BETTER_AUTH_URL is localhost on Vercel production. Using ${baseURL}. ` +
+      `Set BETTER_AUTH_URL=https://bitrok.tech and NEXT_PUBLIC_APP_URL=https://bitrok.tech in project env.`,
   );
 }
 

@@ -8,6 +8,7 @@
  */
 
 const LOCAL = "http://localhost:3000";
+const PROD = "https://bitrok.tech";
 
 /** Canonical public app URL for metadata, redirects, auth. */
 export function getAppURL(): string {
@@ -16,38 +17,70 @@ export function getAppURL(): string {
     return explicit;
   }
 
-  // Vercel system env (no protocol)
-  const vercel = process.env.VERCEL_URL?.replace(/\/+$/, "");
-  if (vercel && !vercel.includes("localhost")) {
-    return `https://${vercel}`;
-  }
-
   const betterAuth = process.env.BETTER_AUTH_URL?.replace(/\/+$/, "");
   if (betterAuth && !isLoopback(betterAuth)) {
     return betterAuth;
   }
 
+  // Vercel system env (preview + production deployments)
+  const vercel = process.env.VERCEL_URL?.replace(/\/+$/, "");
+  if (vercel && !vercel.includes("localhost")) {
+    // Prefer production domain over ephemeral *.vercel.app when on production.
+    if (process.env.VERCEL_ENV === "production") {
+      return PROD;
+    }
+    return `https://${vercel}`;
+  }
+
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {
+    return PROD;
+  }
+
   return explicit || LOCAL;
+}
+
+/** Auth server base URL (Better Auth). Never localhost on Vercel production. */
+export function getAuthBaseURL(): string {
+  const raw = process.env.BETTER_AUTH_URL?.replace(/\/+$/, "");
+  if (raw && !isLoopback(raw)) {
+    return raw;
+  }
+
+  // Misconfigured / missing in production → fall back to public app URL.
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    process.env.VERCEL_ENV === "production"
+  ) {
+    // During `next build` on Vercel, env may still be localhost from a bad
+    // dashboard value — never use loopback in that case.
+    if (!raw || isLoopback(raw)) {
+      return getAppURL();
+    }
+  }
+
+  return raw || LOCAL;
 }
 
 /** Origins that should be allowed for auth cookies / CSRF / OAuth return. */
 export function getTrustedOrigins(): string[] {
-  const primary = getAppURL();
-  const set = new Set<string>([primary]);
+  const primary = getAuthBaseURL();
+  const set = new Set<string>([primary, getAppURL()]);
 
   try {
-    const u = new URL(primary);
-    if (u.hostname === "bitrok.tech") {
-      set.add("https://www.bitrok.tech");
-    }
-    if (u.hostname === "www.bitrok.tech") {
-      set.add("https://bitrok.tech");
+    for (const origin of [...set]) {
+      const u = new URL(origin);
+      if (u.hostname === "bitrok.tech") {
+        set.add("https://www.bitrok.tech");
+      }
+      if (u.hostname === "www.bitrok.tech") {
+        set.add("https://bitrok.tech");
+      }
     }
   } catch {
     /* ignore */
   }
 
-  // Always allow local dev when not in production builds.
   if (process.env.NODE_ENV !== "production") {
     set.add(LOCAL);
   }
