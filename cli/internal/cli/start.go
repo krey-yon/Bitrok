@@ -341,7 +341,15 @@ func runTunnelSession(opts tunnelOpts) error {
 		errCh <- session.Start()
 	}()
 
+	var sessionErr error
 	if opts.ShowUI {
+		// Quit the TUI when the session dies (failed connect / reconnects exhausted).
+		done := make(chan error, 1)
+		go func() {
+			err := <-errCh
+			done <- err
+			p.Quit()
+		}()
 		if _, err := p.Run(); err != nil {
 			session.Stop()
 			if opts.Cleanup != nil {
@@ -350,20 +358,21 @@ func runTunnelSession(opts tunnelOpts) error {
 			return err
 		}
 		session.Stop()
+		select {
+		case sessionErr = <-done:
+		case <-time.After(2 * time.Second):
+		}
 	} else {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 		select {
 		case <-sigCh:
 			session.Stop()
-		case err := <-errCh:
-			if opts.Cleanup != nil {
-				opts.Cleanup()
+			select {
+			case sessionErr = <-errCh:
+			case <-time.After(2 * time.Second):
 			}
-			if err != nil && !strings.Contains(err.Error(), "context canceled") {
-				return err
-			}
-			return nil
+		case sessionErr = <-errCh:
 		}
 	}
 
@@ -371,12 +380,8 @@ func runTunnelSession(opts tunnelOpts) error {
 		opts.Cleanup()
 	}
 
-	select {
-	case err := <-errCh:
-		if err != nil && err.Error() != "context canceled" && !strings.Contains(err.Error(), "context canceled") {
-			return fmt.Errorf("tunnel error: %w", err)
-		}
-	default:
+	if sessionErr != nil && !strings.Contains(sessionErr.Error(), "context canceled") {
+		return sessionErr
 	}
 
 	if opts.ShowUI {

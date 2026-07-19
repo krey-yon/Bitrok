@@ -104,14 +104,26 @@ func (t *TunnelSession) Start() error {
 		}
 	}()
 
+	var lastErr error
 	for {
 		if err := t.connect(); err != nil {
+			lastErr = err
+			// User hit q / Ctrl+C — don't report as reconnect failure.
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
 			if !t.reconnect.SleepContext(ctx) {
-				return fmt.Errorf("max reconnects exceeded")
+				if ctx.Err() != nil {
+					return nil
+				}
+				return fmt.Errorf("could not connect to relay after %d attempts: %w", t.reconnect.MaxRetries, lastErr)
 			}
 			continue
 		}
 		t.reconnect.Reset()
+		lastErr = nil
 
 		err := t.readLoop()
 		if err == io.EOF {
@@ -119,11 +131,20 @@ func (t *TunnelSession) Start() error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		default:
 		}
+		if err != nil {
+			lastErr = err
+		}
 		if !t.reconnect.SleepContext(ctx) {
-			return fmt.Errorf("connection lost, max reconnects exceeded")
+			if ctx.Err() != nil {
+				return nil
+			}
+			if lastErr != nil {
+				return fmt.Errorf("connection lost after %d reconnects: %w", t.reconnect.MaxRetries, lastErr)
+			}
+			return fmt.Errorf("connection lost after %d reconnects", t.reconnect.MaxRetries)
 		}
 	}
 }
