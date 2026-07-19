@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Activity,
+  AtSign,
   CircleDot,
   Clock3,
   ExternalLink,
@@ -10,16 +11,25 @@ import {
 } from "lucide-react";
 import { requireAuth } from "@/lib/session";
 import { getServerLogs, getServerTunnels } from "@/lib/server-api";
+import { getUsernameForUser } from "@/lib/username";
 import { DashboardHeader } from "@/app/components/dashboard-header";
 import { SignOutButton } from "./sign-out-button";
 import { buttonClassName } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
-  const [tunnelsResult, logsResult] = await Promise.allSettled([
-    getServerTunnels(session.user.id),
-    getServerLogs(session.user.id, 50),
+  const [tunnelsResult, logsResult, username] = await Promise.all([
+    getServerTunnels(session.user.id).then(
+      (v) => ({ status: "fulfilled" as const, value: v }),
+      (reason) => ({ status: "rejected" as const, reason }),
+    ),
+    getServerLogs(session.user.id, 50).then(
+      (v) => ({ status: "fulfilled" as const, value: v }),
+      (reason) => ({ status: "rejected" as const, reason }),
+    ),
+    getUsernameForUser(session.user.id),
   ]);
+
   const tunnels = tunnelsResult.status === "fulfilled" ? tunnelsResult.value : [];
   const logs = logsResult.status === "fulfilled" ? logsResult.value.logs : [];
   const totalRequests = logsResult.status === "fulfilled" ? logsResult.value.total : 0;
@@ -32,7 +42,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-full bg-page-gradient">
-      <DashboardHeader email={session.user.email ?? undefined} signOut={<SignOutButton />} />
+      <DashboardHeader
+        email={session.user.email ?? undefined}
+        username={username}
+        signOut={<SignOutButton />}
+      />
       <main id="main-content" className="section-shell py-10 sm:py-14">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -52,6 +66,31 @@ export default async function DashboardPage() {
             CLI setup
           </Link>
         </div>
+
+        {!username && (
+          <div
+            role="status"
+            className="mt-8 flex flex-col gap-3 rounded-xl border border-accent/25 bg-accent/8 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex items-start gap-3 text-sm">
+              <AtSign className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+              <div>
+                <strong>Set a username</strong>
+                <p className="mt-1 text-muted-foreground">
+                  Tunnel URLs look like{" "}
+                  <code className="font-mono text-foreground">myapp-you.bitrok.tech</code>. Pick your
+                  slug once so the CLI can build deterministic hosts.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/settings"
+              className={buttonClassName({ variant: "accent", size: "sm", className: "shrink-0" })}
+            >
+              Create username
+            </Link>
+          </div>
+        )}
 
         {relayUnavailable && (
           <div

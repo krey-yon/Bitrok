@@ -1,5 +1,95 @@
 import { prisma } from "@/lib/prisma";
 
+/** Host labels that must never be claimed as a user slug. */
+const RESERVED = new Set([
+  "api",
+  "www",
+  "app",
+  "admin",
+  "dashboard",
+  "static",
+  "assets",
+  "cdn",
+  "mail",
+  "ftp",
+  "status",
+  "support",
+  "help",
+  "docs",
+  "blog",
+  "auth",
+  "login",
+  "register",
+  "bitrok",
+  "tunnel",
+  "tunnels",
+  "cli",
+  "null",
+  "undefined",
+]);
+
+export type UsernameResult =
+  | { ok: true; username: string }
+  | { ok: false; error: string };
+
+/**
+ * Explicit create/update of a username from the dashboard.
+ * Validates format + uniqueness, then persists.
+ */
+export async function setUsernameForUser(
+  userId: string,
+  raw: string,
+): Promise<UsernameResult> {
+  const username = slugify(raw);
+  if (!username) {
+    return {
+      ok: false,
+      error: "Username must use letters, numbers, or hyphens (e.g. kreyon).",
+    };
+  }
+  if (username.length < 2) {
+    return { ok: false, error: "Username must be at least 2 characters." };
+  }
+  if (username.length > 32) {
+    return { ok: false, error: "Username must be 32 characters or fewer." };
+  }
+  if (RESERVED.has(username)) {
+    return { ok: false, error: "That username is reserved. Pick another." };
+  }
+  if (/^\d+$/.test(username)) {
+    return {
+      ok: false,
+      error: "Username cannot be only numbers. Add a letter.",
+    };
+  }
+
+  const taken = await prisma.user.findFirst({
+    where: { username, NOT: { id: userId } },
+    select: { id: true },
+  });
+  if (taken) {
+    return { ok: false, error: "That username is already taken." };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { username },
+  });
+
+  return { ok: true, username };
+}
+
+/** Load the current username from the DB (session may not include additional fields). */
+export async function getUsernameForUser(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true },
+  });
+  if (!user?.username) return null;
+  const s = slugify(user.username);
+  return s || null;
+}
+
 /**
  * Resolve a stable URL slug for tunnel hosts: <app>-<username>.bitrok.tech.
  *

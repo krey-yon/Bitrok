@@ -11,6 +11,7 @@ export default function NewTunnelPage() {
   return (
     <div className="min-h-full bg-page-gradient">
       <DashboardHeader />
+
       <main id="main-content" className="section-shell py-10 sm:py-14">
         <Link
           href="/dashboard"
