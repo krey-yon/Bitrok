@@ -1,5 +1,5 @@
 # Build stage — Go server with CGO (SQLite requires it)
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev
 
@@ -7,13 +7,15 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
-RUN CGO_ENABLED=1 go build -ldflags "-s -w" -o bitrok-server ./server/cmd/bitrok-server
+COPY pkg ./pkg
+COPY server ./server
+ARG VERSION=dev
+RUN CGO_ENABLED=1 go build -ldflags "-s -w -X github.com/bitrok/bitrok/server/internal/api.Version=${VERSION}" -o bitrok-server ./server/cmd/bitrok-server
 
 # Runtime stage — minimal image
-FROM alpine:latest
+FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates curl
+RUN apk add --no-cache ca-certificates curl sqlite
 RUN addgroup -S bitrok && adduser -S bitrok -G bitrok
 
 WORKDIR /app

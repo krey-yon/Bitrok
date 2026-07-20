@@ -12,8 +12,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VERSION: "${BITROK_VERSION:-dev}"
     container_name: bitrok-server
     restart: unless-stopped
+    init: true
+    read_only: true
+    stop_grace_period: 20s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
     # No host port mapping — Traefik routes to the container over Docker's
     # internal network via the port Coolify registers (8080). Publishing to
     # the host causes "port already allocated" conflicts and breaks Coolify's
@@ -27,6 +38,10 @@ services:
       BITROK_JWT_SECRET: "${BITROK_JWT_SECRET}"
       BITROK_JWT_ISSUER: "${BITROK_JWT_ISSUER:-bitrok}"
       BITROK_JWT_AUDIENCE: "${BITROK_JWT_AUDIENCE:-bitrok-cli}"
+      BITROK_REDIS_URL: "${BITROK_REDIS_URL:-}"
+      BITROK_TRUST_PROXY_HEADERS: "true"
+      BITROK_MAX_TUNNELS_PER_USER: "${BITROK_MAX_TUNNELS_PER_USER:-25}"
+      BITROK_LOG_RETENTION_HOURS: "${BITROK_LOG_RETENTION_HOURS:-168}"
     volumes:
       - bitrok-data:/data
     healthcheck:

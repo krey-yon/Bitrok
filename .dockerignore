@@ -1,33 +1,11 @@
-# ── Version control ──
 .git
-.gitignore
-
-# ── IDE / OS ──
-.idea/
-.vscode/
-*.swp
-.DS_Store
-
-# ── Build artifacts (rebuilt inside Docker) ──
-bin/
-
-# ── Web dashboard — deployed to Vercel separately ──
-web/
-node_modules/
-
-# ── Local databases ──
-*.db
-
-# ── Docs & project notes ──
-docs/
-project.md
-trok.md
-*.md
-!README.md
-
-# ── Environment files ──
+.github
 .env
 .env.*
-
-# ── Release artifacts ──
-dist/
+!.env.example
+bin
+*.db
+*.db-shm
+*.db-wal
+web
+docs

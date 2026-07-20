@@ -4,6 +4,8 @@ builds:
   - id: bitrok
     main: ./cli/cmd/bitrok
     binary: bitrok
+    ldflags:
+      - -s -w -X github.com/bitrok/bitrok/cli/internal/cli.Version={{.Version}}
     env:
       - CGO_ENABLED=0
     goos:
@@ -16,12 +18,12 @@ builds:
 
 archives:
   - id: bitrok
-    builds: [bitrok]
-    format: tar.gz
+    ids: [bitrok]
+    formats: [tar.gz]
     name_template: "bitrok_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: "checksums.txt"

@@ -8,6 +8,8 @@ builds:
   - id: bitrok
     main: ./cli/cmd/bitrok
     binary: bitrok
+    ldflags:
+      - -s -w -X github.com/bitrok/bitrok/cli/internal/cli.Version={{.Version}}
     env:
       - CGO_ENABLED=0
     goos:
@@ -21,6 +23,8 @@ builds:
   - id: bitrok-server
     main: ./server/cmd/bitrok-server
     binary: bitrok-server
+    ldflags:
+      - -s -w -X github.com/bitrok/bitrok/server/internal/api.Version={{.Version}}
     env:
       - CGO_ENABLED=1
     goos:
@@ -31,32 +35,32 @@ builds:
 
 archives:
   - id: bitrok
-    builds: [bitrok]
-    format: tar.gz
+    ids: [bitrok]
+    formats: [tar.gz]
     name_template: "bitrok_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
   - id: bitrok-server
-    builds: [bitrok-server]
-    format: tar.gz
+    ids: [bitrok-server]
+    formats: [tar.gz]
     name_template: "bitrok-server_{{ .Os }}_{{ .Arch }}"
 
-brews:
+homebrew_casks:
   - name: bitrok
+    ids: [bitrok]
     repository:
       owner: krey-yon
       name: homebrew-bitrok
     homepage: "https://github.com/krey-yon/Bitrok"
     description: "Deterministic self-hosted tunnels CLI"
-    install: |
-      bin.install "bitrok"
+    binaries: [bitrok]
 
 checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc

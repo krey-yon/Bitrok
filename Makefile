@@ -1,15 +1,16 @@
 .PHONY: build build-cli build-server build-web dev dev-server dev-cli test clean install-cli release
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS := -X github.com/bitrok/bitrok/server/internal/api.Version=$(VERSION)
+SERVER_LDFLAGS := -X github.com/bitrok/bitrok/server/internal/api.Version=$(VERSION)
+CLI_LDFLAGS := -X github.com/bitrok/bitrok/cli/internal/cli.Version=$(VERSION)
 
 build: build-cli build-server
 
 build-cli:
-	go build -o bin/bitrok ./cli/cmd/bitrok
+	go build -ldflags "$(CLI_LDFLAGS)" -o bin/bitrok ./cli/cmd/bitrok
 
 build-server:
-	go build -ldflags "$(LDFLAGS)" -o bin/bitrok-server ./server/cmd/bitrok-server
+	go build -ldflags "$(SERVER_LDFLAGS)" -o bin/bitrok-server ./server/cmd/bitrok-server
 
 build-web:
 	cd web && npm run build
