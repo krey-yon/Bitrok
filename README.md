@@ -7,12 +7,21 @@ Bitrok is a self-hosted HTTP tunnel relay. The Go server owns tunnel registratio
 Run the relay and dashboard in separate terminals:
 
 ```bash
-cp .env.example .env
+# Terminal 1: relay
+cp server/.env.example .env
+set -a
+. ./.env
+set +a
 go run ./server/cmd/bitrok-server
-cd web && npm ci && npm run dev
+
+# Terminal 2: dashboard
+cp web/.env.example web/.env.local
+cd web
+npm ci
+npm run dev
 ```
 
-For the dashboard, use a PostgreSQL `DATABASE_URL`, a 32-byte-plus `BETTER_AUTH_SECRET`, GitHub OAuth credentials, and the same `BITROK_JWT_SECRET` as the relay. The local relay listens on `http://localhost:8080`; the dashboard uses `BITROK_SERVER_URL=http://localhost:8080` when `NEXT_PUBLIC_USE_LOCALHOST=true`.
+The scoped examples document the complete [server environment](server/.env.example) and [web environment](web/.env.example). The local relay listens on `http://localhost:8080`, and the dashboard uses `BITROK_SERVER_URL=http://localhost:8080`.
 
 Build and test everything with:
 

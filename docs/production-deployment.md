@@ -12,7 +12,7 @@ This document is the release gate for Bitrok. It describes the deployment shape 
 
 ## Secrets and environment
 
-Set every value in `.env.example`. Generate secrets with `openssl rand -hex 32`; do not use the example values. Configure real `SECURITY_CONTACT_EMAIL`, `PRIVACY_CONTACT_EMAIL`, and `NEXT_PUBLIC_SUPPORT_EMAIL` mailboxes before publishing the legal/security pages.
+Configure the values from [`server/.env.example`](../server/.env.example) on the relay and [`web/.env.example`](../web/.env.example) on the dashboard. Generate secrets with `openssl rand -hex 32`; do not use the example values. Configure real `SECURITY_CONTACT_EMAIL`, `PRIVACY_CONTACT_EMAIL`, and `NEXT_PUBLIC_SUPPORT_EMAIL` mailboxes before publishing the legal/security pages.
 
 For the relay, require `BITROK_JWT_SECRET`, set `BITROK_DOMAIN`, keep `BITROK_ALLOW_INSECURE_WS=false`, and leave `BITROK_AUTH_TOKENS` empty unless migrating legacy clients. Keep `BITROK_DB_PATH=/data/bitrok.db` on a persistent volume.
 

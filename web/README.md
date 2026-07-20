@@ -2,20 +2,11 @@
 
 Next.js 16 dashboard for account authentication, immutable username claims, CLI token issuance, and relay activity views.
 
-## Required environment
+## Environment
 
-```dotenv
-DATABASE_URL=postgresql://user:password@host:5432/bitrok
-BETTER_AUTH_SECRET=<at-least-32-random-bytes>
-BETTER_AUTH_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-GITHUB_CLIENT_ID=<github-oauth-client-id>
-GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
-BITROK_JWT_SECRET=<same-secret-as-the-go-relay>
-BITROK_SERVER_URL=http://localhost:8080
-```
+Copy [`web/.env.example`](.env.example) to `.env.local` for local development. It contains the required PostgreSQL, Better Auth, GitHub OAuth, relay JWT, and dashboard URL settings.
 
-Optional variables are documented in the repository `.env.example`. Use the same `BITROK_REDIS_URL` on the web and relay deployments when Redis-backed opaque CLI tokens are enabled.
+Use the same `BITROK_JWT_SECRET` on the web and relay deployments. Configure the same `BITROK_REDIS_URL` on both deployments when Redis-backed opaque CLI tokens or distributed rate limiting are enabled.
 
 ## Commands
 
