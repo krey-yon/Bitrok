@@ -13,6 +13,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -33,6 +34,9 @@ archives:
     builds: [bitrok]
     format: tar.gz
     name_template: "bitrok_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
   - id: bitrok-server
     builds: [bitrok-server]
     format: tar.gz
