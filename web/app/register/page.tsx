@@ -25,14 +25,14 @@ export default function RegisterPage() {
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) return setError("Enter a valid email address.");
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     setLoading(true); setError("");
-    const { error: signUpError } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL: "/dashboard" });
+    const { error: signUpError } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL: "/dashboard/settings?onboarding=1" });
     if (signUpError) { setError(signUpError.message || "We could not create your account. Try again."); setLoading(false); }
-    else { router.push("/dashboard"); router.refresh(); }
+    else { router.push("/dashboard/settings?onboarding=1"); router.refresh(); }
   };
 
   const handleGitHub = async () => {
     setLoading(true); setError("");
-    await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard" });
+    await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard/settings?onboarding=1" });
   };
 
   return (

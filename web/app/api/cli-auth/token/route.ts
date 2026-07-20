@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
-import { mintServerToken } from "@/lib/jwt";
+import { mintCliToken } from "@/lib/cli-token";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getTrustedOrigins } from "@/lib/app-url";
-import { resolveUsernameForUser } from "@/lib/username";
+import { getUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
 
 function getClientIp(req: NextRequest): string {
@@ -76,39 +76,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const jwtSecret = process.env.BITROK_JWT_SECRET;
-    if (!jwtSecret) {
-      console.error("BITROK_JWT_SECRET not configured");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500, headers }
-      );
-    }
-
     const sessionUser = session.user as {
       id: string;
       email?: string | null;
       name?: string | null;
       username?: string | null;
     };
-    const username = await resolveUsernameForUser(sessionUser.id, {
-      email: sessionUser.email,
-      name: sessionUser.name,
-      sessionUsername: sessionUser.username,
-    });
+    const username = await getUsernameForUser(sessionUser.id);
+    if (!username) {
+      return NextResponse.json(
+        { error: "Choose a username before authorizing the CLI.", requiresUsername: true },
+        { status: 409, headers },
+      );
+    }
 
-    // Generate JWT (30-day CLI token, same claims the relay server validates)
-    const token = mintServerToken(
-      sessionUser.id,
-      sessionUser.email ?? undefined,
+    const token = await mintCliToken(
+      {
+        userId: sessionUser.id,
+        email: sessionUser.email ?? undefined,
+        username,
+      },
       30 * 24 * 60 * 60,
-      username,
     );
 
     // Update auth request
     await prisma.cliAuthRequest.update({
       where: { id: authReq.id },
-      data: { status: "approved", token, userId: session.user.id },
+      data: { status: "approved", userId: session.user.id },
     });
 
     return NextResponse.json({ token }, { headers });

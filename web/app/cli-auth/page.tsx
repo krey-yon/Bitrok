@@ -24,7 +24,7 @@ function CliAuthContent() {
   const handleAuthorize = async () => {
     if (!state || !callback) { setError("This authorization request is incomplete. Return to the CLI and run bitrok login again."); return; }
     setAuthorizing(true); setError("");
-    try { const response = await fetch("/api/cli-auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) }); const data = await response.json(); if (data.token) window.location.href = `${callback}?token=${encodeURIComponent(data.token)}&state=${encodeURIComponent(state)}`; else { setError(data.error || "Authorization failed. Run bitrok login again."); setAuthorizing(false); } }
+    try { const response = await fetch("/api/cli-auth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) }); const data = await response.json(); if (response.status === 409 && data.requiresUsername) { window.location.href = `/dashboard/settings?onboarding=1&returnUrl=${encodeURIComponent(`/cli-auth?state=${state}&callback=${encodeURIComponent(callback)}`)}`; return; } if (data.token) window.location.href = `${callback}?token=${encodeURIComponent(data.token)}&state=${encodeURIComponent(state)}`; else { setError(data.error || "Authorization failed. Run bitrok login again."); setAuthorizing(false); } }
     catch { setError("The authorization server could not be reached. Check your connection and try again."); setAuthorizing(false); }
   };
 

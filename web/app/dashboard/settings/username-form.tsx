@@ -1,21 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AtSign, Check, Link2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AtSign, Check, CircleX, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   initialUsername: string | null;
+  returnUrl?: string;
 };
 
-export function UsernameForm({ initialUsername }: Props) {
+export function UsernameForm({ initialUsername, returnUrl }: Props) {
+  const router = useRouter();
   const [value, setValue] = useState(initialUsername ?? "");
   const [saved, setSaved] = useState(initialUsername);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [availability, setAvailability] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const [availabilityMessage, setAvailabilityMessage] = useState("");
 
   const previewSlug = useMemo(() => {
     return value
@@ -29,6 +34,34 @@ export function UsernameForm({ initialUsername }: Props) {
   }, [value]);
 
   const dirty = (saved ?? "") !== previewSlug;
+
+  useEffect(() => {
+    if (!dirty || previewSlug.length < 2) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setAvailability("checking");
+      try {
+        const res = await fetch(`/api/username?candidate=${encodeURIComponent(previewSlug)}`, {
+          signal: controller.signal,
+        });
+        const data = (await res.json()) as { available?: boolean; error?: string };
+        if (!res.ok) throw new Error(data.error || "Availability check failed");
+        setAvailability(data.available ? "available" : "taken");
+        setAvailabilityMessage(data.available ? "Username is available." : data.error || "Username is unavailable.");
+      } catch (checkError) {
+        if ((checkError as Error).name !== "AbortError") {
+          setAvailability("idle");
+          setAvailabilityMessage("");
+        }
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [dirty, previewSlug]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -61,6 +94,10 @@ export function UsernameForm({ initialUsername }: Props) {
           ? "Username updated. Generate a new CLI token so tunnels use the new slug."
           : "Username saved. Your tunnels will use this slug.",
       );
+      if (returnUrl?.startsWith("/")) {
+        router.push(returnUrl);
+        router.refresh();
+      }
     } catch {
       setError("Network error. Try again.");
     } finally {
@@ -91,12 +128,30 @@ export function UsernameForm({ initialUsername }: Props) {
               setValue(e.target.value);
               setError("");
               setSuccess("");
+              setAvailability("idle");
             }}
             placeholder="kreyon"
             className="pl-10 font-mono"
             aria-describedby="username-preview"
           />
         </div>
+        {availability !== "idle" && (
+          <p
+            className={`mt-2 flex items-center gap-1.5 text-xs ${
+              availability === "available"
+                ? "text-success"
+                : availability === "taken"
+                  ? "text-danger"
+                  : "text-muted-foreground"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {availability === "available" && <Check className="size-3.5" aria-hidden />}
+            {availability === "taken" && <CircleX className="size-3.5" aria-hidden />}
+            {availability === "checking" ? "Checking availability…" : availabilityMessage}
+          </p>
+        )}
       </div>
 
       <div
@@ -140,7 +195,7 @@ export function UsernameForm({ initialUsername }: Props) {
       <Button
         type="submit"
         variant="accent"
-        disabled={loading || !dirty || !previewSlug}
+        disabled={loading || !dirty || !previewSlug || availability === "checking" || availability === "taken"}
         arrow={!loading}
       >
         {loading ? (

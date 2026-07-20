@@ -19,6 +19,7 @@ export function CliTokenGenerator() {
     try {
       const response = await fetch("/api/cli-auth/generate", { method: "POST", headers: { "Content-Type": "application/json" } });
       const data = (await response.json()) as GenerateResponse;
+      if (response.status === 409) { window.location.href = "/dashboard/settings?onboarding=1&returnUrl=/dashboard/cli-token"; return; }
       if (!response.ok || !data.token) { setError(data.error || "The token could not be generated. Try again."); return; }
       setToken(data.token); setExpiresAt(data.expiresAt || null);
     } catch { setError("The server could not be reached. Check your connection and try again."); }

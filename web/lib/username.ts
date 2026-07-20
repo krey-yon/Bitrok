@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { markUsernameTaken, usernameMayBeTaken } from "@/lib/username-bloom";
 
 /** Host labels that must never be claimed as a user slug. */
 const RESERVED = new Set([
@@ -32,6 +34,39 @@ export type UsernameResult =
   | { ok: true; username: string }
   | { ok: false; error: string };
 
+export type UsernameAvailability =
+  | { available: true; username: string }
+  | { available: false; username: string; error: string };
+
+function validateUsername(raw: string): UsernameResult {
+  const username = slugify(raw);
+  if (!username) return { ok: false, error: "Use letters, numbers, or hyphens." };
+  if (username.length < 2) return { ok: false, error: "Use at least 2 characters." };
+  if (username.length > 32) return { ok: false, error: "Use 32 characters or fewer." };
+  if (RESERVED.has(username)) return { ok: false, error: "That username is reserved." };
+  if (/^\d+$/.test(username)) return { ok: false, error: "Add at least one letter." };
+  return { ok: true, username };
+}
+
+export async function checkUsernameAvailability(
+  userId: string,
+  raw: string,
+): Promise<UsernameAvailability> {
+  const validated = validateUsername(raw);
+  if (!validated.ok) return { available: false, username: slugify(raw), error: validated.error };
+
+  const maybeTaken = await usernameMayBeTaken(validated.username);
+  if (maybeTaken === false) return { available: true, username: validated.username };
+
+  const taken = await prisma.user.findFirst({
+    where: { username: validated.username, NOT: { id: userId } },
+    select: { id: true },
+  });
+  return taken
+    ? { available: false, username: validated.username, error: "That username is already taken." }
+    : { available: true, username: validated.username };
+}
+
 /**
  * Explicit create/update of a username from the dashboard.
  * Validates format + uniqueness, then persists.
@@ -40,28 +75,9 @@ export async function setUsernameForUser(
   userId: string,
   raw: string,
 ): Promise<UsernameResult> {
-  const username = slugify(raw);
-  if (!username) {
-    return {
-      ok: false,
-      error: "Username must use letters, numbers, or hyphens (e.g. kreyon).",
-    };
-  }
-  if (username.length < 2) {
-    return { ok: false, error: "Username must be at least 2 characters." };
-  }
-  if (username.length > 32) {
-    return { ok: false, error: "Username must be 32 characters or fewer." };
-  }
-  if (RESERVED.has(username)) {
-    return { ok: false, error: "That username is reserved. Pick another." };
-  }
-  if (/^\d+$/.test(username)) {
-    return {
-      ok: false,
-      error: "Username cannot be only numbers. Add a letter.",
-    };
-  }
+  const validated = validateUsername(raw);
+  if (!validated.ok) return validated;
+  const username = validated.username;
 
   const taken = await prisma.user.findFirst({
     where: { username, NOT: { id: userId } },
@@ -71,10 +87,16 @@ export async function setUsernameForUser(
     return { ok: false, error: "That username is already taken." };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { username },
-  });
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { username } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, error: "That username is already taken." };
+    }
+    throw error;
+  }
+
+  await markUsernameTaken(username);
 
   return { ok: true, username };
 }
@@ -88,90 +110,6 @@ export async function getUsernameForUser(userId: string): Promise<string | null>
   if (!user?.username) return null;
   const s = slugify(user.username);
   return s || null;
-}
-
-/**
- * Resolve a stable URL slug for tunnel hosts: <app>-<username>.bitrok.tech.
- *
- * Prefer the stored `user.username`. If missing (legacy accounts, incomplete
- * GitHub map), derive one, persist it, and return it so CLI JWTs always carry
- * the claim.
- */
-export async function resolveUsernameForUser(
-  userId: string,
-  hints?: { email?: string | null; name?: string | null; sessionUsername?: string | null },
-): Promise<string> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, name: true, username: true },
-  });
-  if (!user) {
-    throw new Error("user not found");
-  }
-
-  const fromSession = slugify(hints?.sessionUsername ?? "");
-  if (user.username) {
-    const stored = slugify(user.username);
-    if (stored) return stored;
-  }
-  if (fromSession) {
-    return await ensureUniqueUsername(userId, fromSession);
-  }
-
-  // GitHub noreply: 12345@users.noreply.github.com — prefer name or short id.
-  const candidates = [
-    slugify(user.name ?? ""),
-    slugify(hints?.name ?? ""),
-    slugify(emailLocalPart(user.email)),
-    slugify(emailLocalPart(hints?.email ?? "")),
-    slugify(user.id.slice(0, 10)),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    const taken = await prisma.user.findFirst({
-      where: { username: candidate, NOT: { id: userId } },
-      select: { id: true },
-    });
-    if (!taken) {
-      return await ensureUniqueUsername(userId, candidate);
-    }
-  }
-
-  // Last resort: user id tail + random nibble
-  const fallback = slugify(`${user.id.slice(-8)}-${Math.random().toString(36).slice(2, 5)}`);
-  return await ensureUniqueUsername(userId, fallback || "user");
-}
-
-async function ensureUniqueUsername(userId: string, base: string): Promise<string> {
-  let candidate = base.slice(0, 32);
-  for (let i = 0; i < 20; i++) {
-    const taken = await prisma.user.findFirst({
-      where: { username: candidate, NOT: { id: userId } },
-      select: { id: true },
-    });
-    if (!taken) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { username: candidate },
-      });
-      return candidate;
-    }
-    candidate = `${base.slice(0, 24)}-${i + 2}`;
-  }
-  const last = `${base.slice(0, 20)}-${Date.now().toString(36)}`.slice(0, 32);
-  await prisma.user.update({
-    where: { id: userId },
-    data: { username: last },
-  });
-  return last;
-}
-
-function emailLocalPart(email: string): string {
-  if (!email) return "";
-  const local = email.split("@")[0] || "";
-  // Skip pure-numeric github noreply ids as primary brand slug when possible
-  // (still usable as fallback later in the candidate list).
-  return local;
 }
 
 /** DNS-label-safe slug: lowercase, a-z0-9-, max 32. */

@@ -1,8 +1,8 @@
 import { auth } from "@/lib/auth";
-import { mintServerToken } from "@/lib/jwt";
+import { mintCliToken } from "@/lib/cli-token";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getTrustedOrigins } from "@/lib/app-url";
-import { resolveUsernameForUser } from "@/lib/username";
+import { getUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
 
 function getClientIp(req: NextRequest): string {
@@ -48,15 +48,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
     }
 
-    const jwtSecret = process.env.BITROK_JWT_SECRET;
-    if (!jwtSecret) {
-      console.error("BITROK_JWT_SECRET not configured");
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500, headers }
-      );
-    }
-
     // Always embed a username claim — CLI builds hosts as app-<username>.domain.
     // Legacy users may have null username; resolve + backfill before minting.
     const sessionUser = session.user as {
@@ -65,18 +56,22 @@ export async function POST(req: NextRequest) {
       name?: string | null;
       username?: string | null;
     };
-    const username = await resolveUsernameForUser(sessionUser.id, {
-      email: sessionUser.email,
-      name: sessionUser.name,
-      sessionUsername: sessionUser.username,
-    });
+    const username = await getUsernameForUser(sessionUser.id);
+    if (!username) {
+      return NextResponse.json(
+        { error: "Choose a username before generating a CLI token.", requiresUsername: true },
+        { status: 409, headers },
+      );
+    }
 
     const expiresInSeconds = TOKEN_TTL_DAYS * 24 * 60 * 60;
-    const token = mintServerToken(
-      sessionUser.id,
-      sessionUser.email ?? undefined,
+    const token = await mintCliToken(
+      {
+        userId: sessionUser.id,
+        email: sessionUser.email ?? undefined,
+        username,
+      },
       expiresInSeconds,
-      username,
     );
 
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();

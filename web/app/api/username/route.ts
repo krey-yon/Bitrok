@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import {
+  checkUsernameAvailability,
   getUsernameForUser,
   setUsernameForUser,
   slugify,
@@ -35,6 +36,12 @@ export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
+  }
+
+  const candidate = req.nextUrl.searchParams.get("candidate");
+  if (candidate !== null) {
+    const result = await checkUsernameAvailability(session.user.id, candidate);
+    return NextResponse.json(result, { headers });
   }
 
   const username = await getUsernameForUser(session.user.id);

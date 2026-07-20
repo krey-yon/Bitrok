@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Activity,
   AtSign,
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
   const logs = logsResult.status === "fulfilled" ? logsResult.value.logs : [];
   const totalRequests = logsResult.status === "fulfilled" ? logsResult.value.total : 0;
   const relayUnavailable = tunnelsResult.status === "rejected" || logsResult.status === "rejected";
+  if (!username) redirect("/dashboard/settings?onboarding=1");
   if (tunnelsResult.status === "rejected") console.error("dashboard: failed to load tunnels:", tunnelsResult.reason);
   if (logsResult.status === "rejected") console.error("dashboard: failed to load logs:", logsResult.reason);
   const activeTunnels = tunnels.filter((tunnel) => tunnel.active).length;

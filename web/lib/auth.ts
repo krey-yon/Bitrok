@@ -51,7 +51,6 @@ export const auth = betterAuth({
           email: profile.email || `${profile.id}@users.noreply.github.com`,
           name: profile.name || profile.login,
           image: profile.avatar_url,
-          username: profile.login,
         };
       },
     },

@@ -7,9 +7,15 @@ import { SignOutButton } from "../sign-out-button";
 import { buttonClassName } from "@/components/ui/button";
 import { UsernameForm } from "./username-form";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onboarding?: string; returnUrl?: string }>;
+}) {
   const session = await requireAuth();
   const username = await getUsernameForUser(session.user.id);
+  const params = await searchParams;
+  const returnUrl = params.returnUrl?.startsWith("/") ? params.returnUrl : undefined;
 
   return (
     <div className="min-h-full bg-page-gradient">
@@ -21,9 +27,9 @@ export default async function SettingsPage() {
       <main id="main-content" className="section-shell py-10 sm:py-14">
         <div className="grid gap-8 lg:grid-cols-[.75fr_1.25fr] lg:gap-14">
           <section>
-            <div className="signal-label">Account</div>
+            <div className="signal-label">{!username && params.onboarding ? "One last step" : "Account"}</div>
             <h1 className="mt-5 text-balance text-4xl font-semibold tracking-[-.045em] sm:text-5xl">
-              Your username.
+              {username ? "Your username." : "Choose your username."}
             </h1>
             <p className="mt-4 max-w-md text-pretty leading-7 text-muted-foreground">
               This slug is baked into every public tunnel URL and into CLI tokens. Pick something
@@ -73,7 +79,7 @@ export default async function SettingsPage() {
                 : "Required for clean tunnel URLs from the CLI."}
             </p>
             <div className="mt-7">
-              <UsernameForm initialUsername={username} />
+              <UsernameForm initialUsername={username} returnUrl={returnUrl || (!username ? "/dashboard" : undefined)} />
             </div>
           </section>
         </div>

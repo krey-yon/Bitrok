@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AtSign, KeyRound, ShieldCheck } from "lucide-react";
 import { requireAuth } from "@/lib/session";
 import { getUsernameForUser } from "@/lib/username";
@@ -9,6 +10,7 @@ import { CliTokenGenerator } from "./cli-token-generator";
 export default async function CliTokenPage() {
   const session = await requireAuth();
   const username = await getUsernameForUser(session.user.id);
+  if (!username) redirect("/dashboard/settings?onboarding=1&returnUrl=/dashboard/cli-token");
   return (
     <div className="min-h-full bg-page-gradient">
       <DashboardHeader email={session.user.email ?? undefined} username={username} />
