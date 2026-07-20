@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 // DetachEnv is set on the child process so it knows it is already daemonized.
@@ -45,9 +44,7 @@ func Detach(name string, argv []string) (int, error) {
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Stdin = nil
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true, // new session — survives parent exit
-	}
+	configureDetachedCommand(cmd)
 
 	if err := cmd.Start(); err != nil {
 		logFile.Close()

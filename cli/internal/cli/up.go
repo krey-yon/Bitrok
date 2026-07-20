@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -216,7 +215,7 @@ func spawnDetachedTunnel(name, host string, port int) error {
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Stdin = nil
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	configureDetachedCommand(cmd)
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
 		return err
