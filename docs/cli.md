@@ -11,13 +11,6 @@ bitrok login
 
 `bitrok login` opens the dashboard, verifies the generated credential against the Go relay, and writes configuration to `~/.config/bitrok/config.json` with mode `0600`.
 
-For a headless environment, avoid putting credentials in shell history:
-
-```bash
-export BITROK_TOKEN="<token>"
-bitrok auth --server https://api.bitrok.tech
-```
-
 ## Start a tunnel
 
 ```bash
@@ -68,7 +61,7 @@ bitrok up api
 bitrok up --detach
 ```
 
-Do not put a token in `bitrok.yml`; use the protected CLI configuration or `BITROK_TOKEN` for automation.
+Do not put a token in `bitrok.yml`; use `bitrok login` to write the protected CLI configuration.
 
 ## Process commands
 
@@ -110,7 +103,7 @@ Tunnel names are unique within an account; public hosts are unique across the re
 }
 ```
 
-The file and its containing directory use owner-only permissions. Supported environment overrides include `BITROK_SERVER`, `BITROK_WEB`, and `BITROK_TOKEN`. Plain HTTP service URLs are rejected unless they point to a loopback address.
+The file and its containing directory use owner-only permissions. Supported environment overrides include `BITROK_SERVER` and `BITROK_WEB`. Plain HTTP service URLs are rejected unless they point to a loopback address.
 
 ## Protocol limits
 

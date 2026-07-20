@@ -79,7 +79,7 @@ var configSetCmd = &cobra.Command{
 		case "web_url", "web":
 			cfg.WebURL = config.NormalizeURL(value)
 		case "token":
-			ui.Warn("token will be stored in plaintext — prefer 'bitrok auth' or BITROK_TOKEN env var")
+			ui.Warn("token will be stored in plaintext — prefer 'bitrok login'")
 			cfg.Token = value
 		case "default_domain", "domain":
 			cfg.DefaultDomain = value

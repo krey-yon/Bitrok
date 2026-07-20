@@ -109,7 +109,7 @@ func (c *CLIConfig) Normalize() {
 // Validate ensures the config has the minimum required fields.
 func (c *CLIConfig) Validate() error {
 	if c.ServerURL == "" {
-		return fmt.Errorf("relay server URL not configured; run 'bitrok login' or 'bitrok auth --server <relay-url>'")
+		return fmt.Errorf("relay server URL not configured; run 'bitrok login'")
 	}
 	if c.Token == "" {
 		return fmt.Errorf("auth token not configured; run 'bitrok login'")

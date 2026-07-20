@@ -36,7 +36,7 @@ cd web && npm run lint && npx tsc --noEmit && npm run build
 
 1. Open the dashboard and sign in with GitHub.
 2. Claim the permanent username namespace in Settings.
-3. Generate a CLI token and run `bitrok login`, or configure the token with `bitrok auth`.
+3. Run `bitrok login` (or its `bitrok auth` alias) to open the browser authentication flow.
 4. Start a tunnel with `bitrok myapp 3000`.
 
 The public host is deterministic: `myapp-<username>.<BITROK_DOMAIN>`. Usernames are immutable after claim because CLI credentials carry the namespace claim.

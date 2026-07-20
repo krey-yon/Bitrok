@@ -25,8 +25,9 @@ func init() {
 }
 
 var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Login via browser — copy & paste token",
+	Use:     "login",
+	Aliases: []string{"auth"},
+	Short:   "Login via browser — copy & paste token",
 	Long: `Opens your browser to the Bitrok web dashboard token page.
 
 After signing in, click "Generate CLI Token", copy the token, and paste it
