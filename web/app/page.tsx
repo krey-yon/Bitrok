@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, Check, Cloud, Code2, ExternalLink, Radio, Server, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, Check, Cloud, Code2, ExternalLink, Radio, Server } from "lucide-react";
 import { AuthRedirect } from "@/app/auth-redirect";
 import { TrafficDiagram } from "@/app/components/traffic-diagram";
 import { Logo } from "@/components/ui/logo";
@@ -132,7 +133,7 @@ export default function Home() {
 
         <section className="relative overflow-hidden border-t border-hairline">
           <div className="absolute inset-0 bg-grid opacity-60" aria-hidden /><div className="absolute inset-0 bg-noise" aria-hidden />
-          <div className="section-shell relative py-24 text-center sm:py-32"><Sparkles className="mx-auto size-7 text-secondary" aria-hidden /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 grid max-w-2xl gap-2 sm:grid-cols-2"><InstallCommand label="macOS / Linux" command={INSTALL_CMD} prompt="$" /><InstallCommand label="Windows PowerShell" command={INSTALL_WINDOWS_CMD} prompt=">" /></div></div>
+          <div className="section-shell relative py-24 text-center sm:py-32"><Image src="/icon.svg" width={32} height={32} alt="" aria-hidden className="mx-auto size-8" /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 grid max-w-2xl gap-2 sm:grid-cols-2"><InstallCommand label="macOS / Linux" command={INSTALL_CMD} prompt="$" /><InstallCommand label="Windows PowerShell" command={INSTALL_WINDOWS_CMD} prompt=">" /></div></div>
         </section>
       </main>
 

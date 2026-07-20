@@ -4,6 +4,8 @@ export const alt = "Bitrok deterministic tunneling infrastructure";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bitrok.tech";
+
 export default function OpenGraphImage() {
   return new ImageResponse(
     <div
@@ -29,14 +31,17 @@ export default function OpenGraphImage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "2px solid #b8f34a",
-              borderRadius: 8,
-              color: "#b8f34a",
-              fontSize: 28,
-              fontWeight: 700,
+              background: "#f2f3ea",
+              borderRadius: 10,
+              padding: 8,
             }}
           >
-            B
+            <img
+              src={`${baseUrl}/icon.svg`}
+              width={36}
+              height={36}
+              alt=""
+            />
           </div>
           <div style={{ display: "flex", fontSize: 34, fontWeight: 700 }}>Bitrok</div>
         </div>
