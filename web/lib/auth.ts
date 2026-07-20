@@ -45,6 +45,9 @@ export const auth = betterAuth({
     github: {
       clientId: requireEnv("GITHUB_CLIENT_ID"),
       clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
+      // GitHub Apps use their configured fine-grained permissions, not OAuth
+      // App scopes. Better Auth otherwise adds read:user and user:email.
+      disableDefaultScope: true,
       getUserInfo: async (token) => {
         if (!token.accessToken) return null;
         return fetchVerifiedGithubIdentity(token.accessToken);
