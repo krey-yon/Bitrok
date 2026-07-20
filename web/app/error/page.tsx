@@ -12,6 +12,7 @@ const errorMessages: Record<string, { title: string; message: string; action?: s
   invalid_code: { title: "That sign-in link expired.", message: "GitHub returned an invalid or expired authorization code.", action: "Start a fresh sign-in request." },
   no_callback_url: { title: "The sign-in request is incomplete.", message: "No callback URL was attached to this authentication request.", action: "Return to the login page and try again." },
   oauth_provider_not_found: { title: "GitHub sign-in is unavailable.", message: "The OAuth provider is not configured correctly.", action: "Contact support if the problem continues." },
+  service_unavailable: { title: "The dashboard is temporarily unavailable.", message: "Bitrok could not reach the session database.", action: "Wait a moment, then try again. Your tunnels and account data are unaffected." },
   unable_to_get_user_info: { title: "GitHub profile access failed.", message: "Bitrok could not retrieve the account information required to sign you in.", action: "Try again or use email and password." },
   state_not_found: { title: "The sign-in session expired.", message: "The authentication state is missing or no longer valid.", action: "Start a fresh sign-in request." },
 };

@@ -10,7 +10,12 @@ export async function getSession() {
 }
 
 export async function requireAuth() {
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession();
+  } catch {
+    redirect("/error?error=service_unavailable");
+  }
   if (!session) {
     redirect("/login");
   }
