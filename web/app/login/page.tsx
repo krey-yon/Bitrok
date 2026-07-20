@@ -17,7 +17,7 @@ function LoginContent() {
 
   const handleGitHub = async () => {
     setLoading(true); setError("");
-    const { error: signInError } = await authClient.signIn.social({ provider: "github", callbackURL: returnUrl });
+    const { error: signInError } = await authClient.signIn.social({ provider: "github", callbackURL: returnUrl, errorCallbackURL: "/error" });
     if (signInError) {
       setError(signInError.message || "GitHub sign-in could not be started. Try again.");
       setLoading(false);

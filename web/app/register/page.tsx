@@ -14,7 +14,7 @@ export default function RegisterPage() {
 
   const handleGitHub = async () => {
     setLoading(true); setError("");
-    const { error: signUpError } = await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard/settings?onboarding=1" });
+    const { error: signUpError } = await authClient.signIn.social({ provider: "github", callbackURL: "/dashboard/settings?onboarding=1", errorCallbackURL: "/error" });
     if (signUpError) {
       setError(signUpError.message || "GitHub registration could not be started. Try again.");
       setLoading(false);

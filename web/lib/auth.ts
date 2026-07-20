@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
 import { getAuthBaseURL, getTrustedOrigins } from "@/lib/app-url";
-import { selectVerifiedGithubEmail } from "@/lib/github-identity";
+import { fetchVerifiedGithubIdentity } from "@/lib/github-identity";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -48,41 +48,7 @@ export const auth = betterAuth({
       scope: ["read:user", "user:email"],
       getUserInfo: async (token) => {
         if (!token.accessToken) return null;
-        const headers = {
-          Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${token.accessToken}`,
-          "X-GitHub-Api-Version": "2022-11-28",
-        };
-        const [profileResponse, emailsResponse] = await Promise.all([
-          fetch("https://api.github.com/user", { headers }),
-          fetch("https://api.github.com/user/emails", { headers }),
-        ]);
-        if (!profileResponse.ok || !emailsResponse.ok) return null;
-
-        const profile = (await profileResponse.json()) as {
-          id?: number | string;
-          login?: string;
-          name?: string | null;
-          avatar_url?: string;
-        };
-        const emails = (await emailsResponse.json()) as Array<{
-          email?: string;
-          primary?: boolean;
-          verified?: boolean;
-        }>;
-        const email = selectVerifiedGithubEmail(emails);
-        if (!profile.id || !profile.login || !email) return null;
-
-        return {
-          user: {
-            id: String(profile.id),
-            email,
-            emailVerified: true,
-            name: profile.name || profile.login,
-            image: profile.avatar_url,
-          },
-          data: profile,
-        };
+        return fetchVerifiedGithubIdentity(token.accessToken);
       },
     },
   },
