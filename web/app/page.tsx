@@ -45,8 +45,8 @@ export default function Home() {
               <p className="hero-copy mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground animate-slide-up [animation-delay:80ms] sm:text-lg sm:leading-8">
                 Give a local API, webhook receiver, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
               </p>
-              <div className="hero-actions mt-7 flex flex-col gap-3 sm:flex-row animate-slide-up [animation-delay:140ms]">
-                <Link href="/register" className={buttonClassName({ variant: "accent", size: "lg", className: "sm:min-w-44" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link>
+              <div className="hero-actions mt-7 grid max-w-2xl gap-3 animate-slide-up [animation-delay:140ms] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-stretch">
+                <InstallCommand label="macOS / Linux" command={INSTALL_CMD} prompt="$" featured />
                 <Link href="#how-it-works" className={buttonClassName({ variant: "ghost", size: "lg" })}>See the 30-second setup</Link>
               </div>
               <div className="hero-benefits mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -142,8 +142,8 @@ export default function Home() {
   );
 }
 
-function InstallCommand({ label, command, prompt }: { label: string; command: string; prompt: string }) {
-  return <div className="min-w-0 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"><div className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground">{label}</div><div className="flex min-w-0 items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{prompt}</span><code className="min-w-0 flex-1 truncate font-mono text-xs">{command}</code><CopyButton text={command} /></div></div>;
+function InstallCommand({ label, command, prompt, featured = false }: { label: string; command: string; prompt: string; featured?: boolean }) {
+  return <div className={featured ? "min-w-0 rounded-lg border border-border bg-card p-2 pl-4 text-left shadow-sm" : "min-w-0 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"}><div className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground">{label}</div><div className="flex min-w-0 items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{prompt}</span><code className={featured ? "min-w-0 flex-1 whitespace-normal break-words font-mono text-xs sm:whitespace-nowrap" : "min-w-0 flex-1 truncate font-mono text-xs"}>{command}</code><CopyButton text={command} /></div></div>;
 }
 
 const TRUST_ITEMS = [
