@@ -142,7 +142,7 @@ export default function Home() {
 }
 
 function InstallCommand({ label, command, prompt, featured = false }: { label: string; command: string; prompt: string; featured?: boolean }) {
-  return <div className={featured ? "min-w-0 rounded-lg border border-border bg-card p-2 pl-4 text-left shadow-sm" : "min-w-0 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"}><div className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground">{label}</div><div className="flex min-w-0 items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{prompt}</span><code className={featured ? "min-w-0 flex-1 whitespace-normal break-words font-mono text-xs sm:whitespace-nowrap" : "min-w-0 flex-1 truncate font-mono text-xs"}>{command}</code><CopyButton text={command} /></div></div>;
+  return <div className={featured ? "min-w-0 rounded-lg border border-border bg-card p-2 pl-4 text-left shadow-sm" : "min-w-0 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"}><div className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground">{label}</div><div className="flex min-w-0 items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{prompt}</span><code className={featured ? "min-w-0 flex-1 whitespace-normal break-words font-mono text-xs sm:whitespace-nowrap" : "min-w-0 flex-1 truncate font-mono text-xs"}>{command}</code><CopyButton text={command} className={featured ? "size-6 shrink-0 rounded-md text-muted-foreground/80 hover:bg-accent/[0.06]" : undefined} /></div></div>;
 }
 
 const TRUST_ITEMS = [

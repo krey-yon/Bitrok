@@ -32,6 +32,7 @@ export function CopyButton({
       type="button"
       onClick={onCopy}
       aria-label={copied ? "Copied" : "Copy to clipboard"}
+      title={copied ? "Copied" : "Copy to clipboard"}
       className={cn(
         "inline-flex size-7 items-center justify-center rounded-[calc(var(--radius)*0.6)]",
         "text-muted-foreground hover:text-accent hover:bg-accent/[0.08]",
