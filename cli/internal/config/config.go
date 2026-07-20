@@ -19,6 +19,7 @@ type CLIConfig struct {
 	ServerURL     string `json:"server_url"`
 	WebURL        string `json:"web_url,omitempty"`
 	Token         string `json:"token"`
+	Username      string `json:"username,omitempty"`
 	DefaultDomain string `json:"default_domain"`
 }
 
@@ -77,6 +78,7 @@ func (c *CLIConfig) Normalize() {
 	c.ServerURL = NormalizeURL(c.ServerURL)
 	c.WebURL = NormalizeURL(c.WebURL)
 	c.Token = strings.TrimSpace(c.Token)
+	c.Username = strings.TrimSpace(c.Username)
 	c.DefaultDomain = strings.TrimSpace(c.DefaultDomain)
 }
 

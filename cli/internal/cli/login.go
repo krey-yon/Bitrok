@@ -150,11 +150,13 @@ func copyPasteLogin(relayURL, webURL string) error {
 		return fmt.Errorf("no token provided")
 	}
 
-	if err := verifyRelayToken(relayURL, token); err != nil {
+	username, err := verifyRelayToken(relayURL, token)
+	if err != nil {
 		return err
 	}
-
-	username, _ := util.UsernameFromToken(token)
+	if username == "" {
+		username, _ = util.UsernameFromToken(token)
+	}
 
 	cfg, _ := config.Load()
 	if cfg == nil {
@@ -163,6 +165,7 @@ func copyPasteLogin(relayURL, webURL string) error {
 	cfg.ServerURL = relayURL
 	cfg.WebURL = webURL
 	cfg.Token = token
+	cfg.Username = username
 	if cfg.DefaultDomain == "" || cfg.DefaultDomain == "example.com" {
 		cfg.DefaultDomain = config.DefaultDomain
 	}
@@ -190,18 +193,18 @@ func copyPasteLogin(relayURL, webURL string) error {
 }
 
 // verifyRelayToken hits GET /api/tunnels with the JWT.
-func verifyRelayToken(relayURL, token string) error {
+func verifyRelayToken(relayURL, token string) (string, error) {
 	url := config.NormalizeURL(relayURL) + "/api/tunnels"
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	client := &http.Client{Timeout: 12 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("cannot reach relay at %s: %w\n\n  Production relay is https://api.bitrok.tech", relayURL, err)
+		return "", fmt.Errorf("cannot reach relay at %s: %w\n\n  Production relay is https://api.bitrok.tech", relayURL, err)
 	}
 	defer res.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 512))
@@ -209,15 +212,15 @@ func verifyRelayToken(relayURL, token string) error {
 
 	switch res.StatusCode {
 	case http.StatusOK:
-		return nil
+		return strings.TrimSpace(res.Header.Get("X-Bitrok-Username")), nil
 	case http.StatusUnauthorized, http.StatusForbidden:
 		if config.LooksLikeWebDashboard(relayURL) || strings.Contains(msg, `"Unauthorized"`) {
-			return fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Point server_url at the Go relay, not the web app:\n    bitrok login\n    # → web https://bitrok.tech  ·  relay https://api.bitrok.tech\n\n  Response: %s", res.StatusCode, url, truncate(msg, 120))
+			return "", fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Point server_url at the Go relay, not the web app:\n    bitrok login\n    # → web https://bitrok.tech  ·  relay https://api.bitrok.tech\n\n  Response: %s", res.StatusCode, url, truncate(msg, 120))
 		}
-		return fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Token may be expired, or BITROK_JWT_SECRET on the web dashboard\n  does not match the secret on api.bitrok.tech.\n  Generate a fresh token at %s/dashboard/cli-token\n  Response: %s",
+		return "", fmt.Errorf("relay rejected the token (HTTP %d) at %s\n\n  Token may be expired, or BITROK_JWT_SECRET on the web dashboard\n  does not match the secret on api.bitrok.tech.\n  Generate a fresh token at %s/dashboard/cli-token\n  Response: %s",
 			res.StatusCode, url, config.DefaultWebURL, truncate(msg, 120))
 	default:
-		return fmt.Errorf("unexpected response from relay (HTTP %d) at %s: %s", res.StatusCode, url, truncate(msg, 120))
+		return "", fmt.Errorf("unexpected response from relay (HTTP %d) at %s: %s", res.StatusCode, url, truncate(msg, 120))
 	}
 }
 

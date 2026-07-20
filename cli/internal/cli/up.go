@@ -79,9 +79,12 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no tunnels defined in %s", path)
 	}
 
-	username, err := util.UsernameFromToken(cfg.Token)
-	if err != nil {
-		return err
+	username := cfg.Username
+	if username == "" {
+		username, err = util.UsernameFromToken(cfg.Token)
+		if err != nil {
+			return fmt.Errorf("could not read auth token: %w", err)
+		}
 	}
 	domain := cfg.DefaultDomain
 	if domain == "" {
@@ -248,4 +251,3 @@ func resolveYAMLPath(flag string) (string, error) {
 	}
 	return "", fmt.Errorf("no bitrok.yml found (looked for bitrok.yml, bitrok.yaml); pass --config")
 }
-

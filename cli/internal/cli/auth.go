@@ -54,6 +54,11 @@ Using the environment variable is recommended to avoid exposing the token in she
 		if cfg.DefaultDomain == "" {
 			cfg.DefaultDomain = config.DefaultDomain
 		}
+		username, err := verifyRelayToken(server, token)
+		if err != nil {
+			return err
+		}
+		cfg.Username = username
 
 		if err := config.Save(cfg); err != nil {
 			return err

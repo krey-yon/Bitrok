@@ -51,8 +51,10 @@ type TunnelSession struct {
 	LocalAddr  string
 	AllowIPs   []string // optional CIDR allowlist (client-side filter)
 	conn       *websocket.Conn
+	connMu     sync.RWMutex
 	done       chan struct{}
 	stopOnce   sync.Once
+	refresh    chan struct{}
 	reconnect  *Reconnect
 	sem        chan struct{} // limits concurrent handleRequest goroutines
 	httpClient *http.Client
@@ -62,11 +64,11 @@ type TunnelSession struct {
 	OnStats func(total int64, p50ms int64, bytesIn, bytesOut int64)
 
 	// in-memory counters for OnStats
-	statMu     sync.Mutex
-	statCount  int64
-	statIn     int64
-	statOut    int64
-	statLats   []time.Duration
+	statMu    sync.Mutex
+	statCount int64
+	statIn    int64
+	statOut   int64
+	statLats  []time.Duration
 }
 
 // NewTunnelSession creates a new tunnel session.
@@ -77,6 +79,7 @@ func NewTunnelSession(serverURL, token, tunnelID, localAddr string) *TunnelSessi
 		TunnelID:  tunnelID,
 		LocalAddr: localAddr,
 		done:      make(chan struct{}),
+		refresh:   make(chan struct{}, 1),
 		reconnect: NewReconnect(5),
 		sem:       make(chan struct{}, 50), // max 50 concurrent requests
 		httpClient: &http.Client{
@@ -114,7 +117,11 @@ func (t *TunnelSession) Start() error {
 				return nil
 			default:
 			}
-			if !t.reconnect.SleepContext(ctx) {
+			canRetry, refreshed := t.reconnect.sleepContext(ctx, t.refresh)
+			if refreshed {
+				t.reconnect.Reset()
+			}
+			if !canRetry {
 				if ctx.Err() != nil {
 					return nil
 				}
@@ -124,6 +131,12 @@ func (t *TunnelSession) Start() error {
 		}
 		t.reconnect.Reset()
 		lastErr = nil
+		select {
+		case <-t.refresh:
+			t.closeConnection()
+			continue
+		default:
+		}
 
 		err := t.readLoop()
 		if err == io.EOF {
@@ -134,10 +147,20 @@ func (t *TunnelSession) Start() error {
 			return nil
 		default:
 		}
+		select {
+		case <-t.refresh:
+			t.reconnect.Reset()
+			continue
+		default:
+		}
 		if err != nil {
 			lastErr = err
 		}
-		if !t.reconnect.SleepContext(ctx) {
+		canRetry, refreshed := t.reconnect.sleepContext(ctx, t.refresh)
+		if refreshed {
+			t.reconnect.Reset()
+		}
+		if !canRetry {
 			if ctx.Err() != nil {
 				return nil
 			}
@@ -149,13 +172,21 @@ func (t *TunnelSession) Start() error {
 	}
 }
 
+// Refresh closes the active relay connection so Start reconnects immediately.
+// It is non-blocking and safe to call when a reconnect is already in progress.
+func (t *TunnelSession) Refresh() {
+	select {
+	case t.refresh <- struct{}{}:
+	default:
+	}
+	t.closeConnection()
+}
+
 // Stop closes the connection gracefully. Safe to call multiple times.
 func (t *TunnelSession) Stop() {
 	t.stopOnce.Do(func() {
 		close(t.done)
-		if t.conn != nil {
-			t.conn.Close()
-		}
+		t.closeConnection()
 		if t.Logs != nil {
 			close(t.Logs)
 		}
@@ -215,11 +246,17 @@ func (t *TunnelSession) connect() error {
 		return err
 	}
 
+	t.connMu.Lock()
 	t.conn = conn
+	t.connMu.Unlock()
 	return nil
 }
 
 func (t *TunnelSession) readLoop() error {
+	conn := t.connection()
+	if conn == nil {
+		return fmt.Errorf("relay connection is not available")
+	}
 	for {
 		select {
 		case <-t.done:
@@ -227,10 +264,10 @@ func (t *TunnelSession) readLoop() error {
 		default:
 		}
 
-		if err := t.conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		if err := conn.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
 			return err
 		}
-		_, data, err := t.conn.ReadMessage()
+		_, data, err := conn.ReadMessage()
 		if err != nil {
 			return err
 		}
@@ -243,7 +280,7 @@ func (t *TunnelSession) readLoop() error {
 		switch msg.Type {
 		case string(protocol.TypePing):
 			t.writeMu.Lock()
-			_ = t.conn.WriteJSON(protocol.Pong{Type: string(protocol.TypePong)})
+			_ = conn.WriteJSON(protocol.Pong{Type: string(protocol.TypePong)})
 			t.writeMu.Unlock()
 		case string(protocol.TypeRequest):
 			var req protocol.ProxyRequest
@@ -403,6 +440,10 @@ func p50Of(lats []time.Duration) time.Duration {
 }
 
 func (t *TunnelSession) sendResponse(reqID string, status int, headers map[string]string, bodyB64 string) {
+	conn := t.connection()
+	if conn == nil {
+		return
+	}
 	resp := protocol.ProxyResponse{
 		Type:    string(protocol.TypeResponse),
 		ReqID:   reqID,
@@ -413,5 +454,18 @@ func (t *TunnelSession) sendResponse(reqID string, status int, headers map[strin
 	// Serialize writes to prevent concurrent goroutines from interleaving JSON frames
 	t.writeMu.Lock()
 	defer t.writeMu.Unlock()
-	_ = t.conn.WriteJSON(resp)
+	_ = conn.WriteJSON(resp)
+}
+
+func (t *TunnelSession) connection() *websocket.Conn {
+	t.connMu.RLock()
+	defer t.connMu.RUnlock()
+	return t.conn
+}
+
+func (t *TunnelSession) closeConnection() {
+	conn := t.connection()
+	if conn != nil {
+		_ = conn.Close()
+	}
 }

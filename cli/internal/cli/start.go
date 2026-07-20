@@ -94,9 +94,12 @@ func runStart(name string, port int, flags startFlags) error {
 
 	host := flags.Host
 	if host == "" {
-		username, err := util.UsernameFromToken(cfg.Token)
-		if err != nil {
-			return fmt.Errorf("could not read auth token: %w", err)
+		username := cfg.Username
+		if username == "" {
+			username, err = util.UsernameFromToken(cfg.Token)
+			if err != nil {
+				return fmt.Errorf("could not read auth token: %w", err)
+			}
 		}
 		if username == "" {
 			return fmt.Errorf("your token has no username claim\n\n  Generate a fresh token on the dashboard (after deploy that embeds username),\n  then:\n    bitrok login\n\n  Or force a host:\n    bitrok %s %d --host %s-you.bitrok.tech", slug, port, slug)
@@ -319,6 +322,10 @@ func runTunnelSession(opts tunnelOpts) error {
 	var p *tea.Program
 	if opts.ShowUI {
 		dash := ui.NewDashboard(pubURL, opts.LocalAddr)
+		dash.Refresh = func() tea.Msg {
+			session.Refresh()
+			return nil
+		}
 		session.Logs = make(chan client.RequestLog, 256)
 		p = tea.NewProgram(dash, tea.WithAltScreen())
 		go func() {

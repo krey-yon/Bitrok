@@ -44,6 +44,7 @@ type DashboardModel struct {
 	Width     int
 	Height    int
 	Quitting  bool
+	Refresh   tea.Cmd
 
 	// Stats
 	TotalRequests  int
@@ -90,6 +91,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "o":
 			if m.PublicURL != "" {
 				util.OpenBrowser(m.PublicURL)
+			}
+		case "r":
+			if m.Refresh != nil {
+				return m, m.Refresh
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -253,7 +258,7 @@ func (m DashboardModel) View() string {
 
 	keys := lipgloss.NewStyle().
 		Foreground(Gray).
-		Render("[o] open   [q] quit")
+		Render("[o] open   [r] refresh   [q] quit")
 
 	footerRight := []string{
 		"",
