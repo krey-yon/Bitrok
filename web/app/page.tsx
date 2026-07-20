@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, Cloud, Code2, Radio, Server, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Cloud, Code2, ExternalLink, Radio, Server, Sparkles } from "lucide-react";
 import { AuthRedirect } from "@/app/auth-redirect";
 import { TrafficDiagram } from "@/app/components/traffic-diagram";
 import { Logo } from "@/components/ui/logo";
@@ -10,6 +10,8 @@ import { GitHubMark } from "@/components/ui/github-mark";
 
 const INSTALL_CMD = "curl -fsSL bitrok.tech/install | sh";
 const GITHUB_URL = "https://github.com/krey-yon/Bitrok";
+const X_URL = "https://x.com/Krey_yon";
+const LINKEDIN_URL = "https://www.linkedin.com/in/vikas387/";
 
 export default function Home() {
   return (
@@ -21,10 +23,9 @@ export default function Home() {
           <nav aria-label="Main navigation" className="flex min-w-0 items-center gap-1 sm:gap-2">
             <Link href="#how-it-works" className="hidden rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-flex">How It Works</Link>
             <Link href="#use-cases" className="hidden rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-flex">Use Cases</Link>
-            <Link href={GITHUB_URL} aria-label="View Bitrok on GitHub" className="hidden rounded-md p-2.5 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground sm:inline-flex"><GitHubMark /></Link>
+            <Link href={GITHUB_URL} aria-label="Bitrok creator krey-yon on GitHub" className="hidden items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground sm:inline-flex"><GitHubMark /><span className="font-mono">krey-yon</span></Link>
             <ThemeToggle />
-            <Link href="/login" className="hidden rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-foreground/[0.05] sm:inline-flex">Sign In</Link>
-            <Link href="/register" className={buttonClassName({ variant: "accent", size: "sm", className: "shrink-0 px-3 sm:px-3.5" })}><span className="min-[430px]:hidden">Start</span><span className="hidden min-[430px]:inline">Claim Your URL</span> <ArrowRight className="size-3.5" aria-hidden /></Link>
+            <Link href="/register" className={buttonClassName({ variant: "accent", size: "sm", className: "shrink-0 px-3 sm:px-3.5" })}>Get Started <ArrowRight className="size-3.5" aria-hidden /></Link>
           </nav>
         </div>
       </header>
@@ -44,7 +45,7 @@ export default function Home() {
                 Give a local API, WebSocket game, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
               </p>
               <div className="hero-actions mt-7 flex flex-col gap-3 sm:flex-row animate-slide-up [animation-delay:140ms]">
-                <Link href="/register" className={buttonClassName({ variant: "accent", size: "lg", className: "sm:min-w-44" })}>Claim Your URL <ArrowRight className="size-4" aria-hidden /></Link>
+                <Link href="/register" className={buttonClassName({ variant: "accent", size: "lg", className: "sm:min-w-44" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link>
                 <Link href="#how-it-works" className={buttonClassName({ variant: "ghost", size: "lg" })}>See the 30-second setup</Link>
               </div>
               <div className="hero-benefits mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -131,11 +132,11 @@ export default function Home() {
 
         <section className="relative overflow-hidden border-t border-hairline">
           <div className="absolute inset-0 bg-grid opacity-60" aria-hidden /><div className="absolute inset-0 bg-noise" aria-hidden />
-          <div className="section-shell relative py-24 text-center sm:py-32"><Sparkles className="mx-auto size-7 text-secondary" aria-hidden /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Claim Your URL <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 flex max-w-lg items-center gap-2 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"><span className="font-mono text-xs text-muted-foreground">$</span><code className="min-w-0 flex-1 truncate font-mono text-xs sm:text-sm">{INSTALL_CMD}</code><CopyButton text={INSTALL_CMD} /></div></div>
+          <div className="section-shell relative py-24 text-center sm:py-32"><Sparkles className="mx-auto size-7 text-secondary" aria-hidden /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 flex max-w-lg items-center gap-2 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"><span className="font-mono text-xs text-muted-foreground">$</span><code className="min-w-0 flex-1 truncate font-mono text-xs sm:text-sm">{INSTALL_CMD}</code><CopyButton text={INSTALL_CMD} /></div></div>
         </section>
       </main>
 
-      <footer className="border-t border-hairline bg-card/40"><div className="section-shell flex flex-col gap-8 py-10 sm:flex-row sm:items-end sm:justify-between"><div><Logo className="text-lg" /><p className="mt-3 max-w-sm text-sm text-muted-foreground">Deterministic tunnels for backends that live wherever you do.</p></div><div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground"><Link href={GITHUB_URL} className="hover:text-foreground">GitHub</Link><Link href="/privacy" className="hover:text-foreground">Privacy</Link><Link href="/security" className="hover:text-foreground">Security</Link><span>© 2026 Bitrok</span></div></div></footer>
+      <footer className="border-t border-hairline bg-card/40"><div className="section-shell flex flex-col gap-8 py-10 sm:flex-row sm:items-end sm:justify-between"><div><Logo className="text-lg" /><p className="mt-3 max-w-sm text-sm text-muted-foreground">Deterministic tunnels for backends that live wherever you do.</p></div><div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground"><Link href={GITHUB_URL} className="inline-flex items-center gap-1.5 hover:text-foreground"><GitHubMark className="size-3.5" />krey-yon</Link><a href={X_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">X / Twitter</a><a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground">LinkedIn<ExternalLink className="size-3" aria-hidden /></a><Link href="/privacy" className="hover:text-foreground">Privacy</Link><Link href="/security" className="hover:text-foreground">Security</Link><span>© 2026 Bitrok</span></div></div></footer>
     </div>
   );
 }
