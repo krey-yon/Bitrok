@@ -54,8 +54,8 @@ var knownCommands = map[string]bool{
 	"auth": true, "login": true, "config": true,
 	"create": true, "delete": true, "update": true, "inspect": true,
 	"up": true, "down": true, "stop": true,
-	"list": true, "status": true, "logs": true,
-	"http": true, "ws": true,
+	"list": true, "status": true,
+	"http":    true,
 	"version": true,
 }
 
@@ -87,15 +87,15 @@ func maybeRewriteStartArgs(args []string) []string {
 func runRoot(cmd *cobra.Command, args []string) error {
 	// No args → brand splash + help.
 	if len(args) == 0 {
-		ui.PrintBanner("v0.3.0")
+		ui.PrintBanner(Version)
 		fmt.Println(cmd.UsageString())
 		return nil
 	}
 	// Fallback: name + port without rewrite (shouldn't happen often).
-	if len(args) >= 2 {
+	if len(args) == 2 {
 		port, err := util.ValidatePortString(args[1])
 		if err != nil {
-			return err
+			return fmt.Errorf("unknown command %q\n\nRun 'bitrok --help' for usage", args[0])
 		}
 		flags, err := readStartFlags(cmd)
 		if err != nil {

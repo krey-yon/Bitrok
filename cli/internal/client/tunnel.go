@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -60,6 +61,8 @@ type TunnelSession struct {
 	httpClient *http.Client
 	writeMu    sync.Mutex // protects conn.WriteJSON from concurrent goroutines
 	Logs       chan RequestLog
+	logsMu     sync.RWMutex
+	logsClosed bool
 	// Stats hook — called after each request (for PID meta updates).
 	OnStats func(total int64, p50ms int64, bytesIn, bytesOut int64)
 
@@ -73,6 +76,8 @@ type TunnelSession struct {
 
 // NewTunnelSession creates a new tunnel session.
 func NewTunnelSession(serverURL, token, tunnelID, localAddr string) *TunnelSession {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxResponseHeaderBytes = 1 << 20
 	return &TunnelSession{
 		ServerURL: serverURL,
 		Token:     token,
@@ -83,7 +88,8 @@ func NewTunnelSession(serverURL, token, tunnelID, localAddr string) *TunnelSessi
 		reconnect: NewReconnect(5),
 		sem:       make(chan struct{}, 50), // max 50 concurrent requests
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 			// Don't follow redirects — a tunnel must pass 301/302 through to the
 			// upstream client untouched.
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -129,6 +135,10 @@ func (t *TunnelSession) Start() error {
 			}
 			continue
 		}
+		// Once a tunnel has been established it is expected to survive transient
+		// outages indefinitely. Initial setup still fails after five attempts so
+		// bad URLs or credentials do not hang an interactive command forever.
+		t.reconnect.MaxRetries = 0
 		t.reconnect.Reset()
 		lastErr = nil
 		select {
@@ -187,9 +197,12 @@ func (t *TunnelSession) Stop() {
 	t.stopOnce.Do(func() {
 		close(t.done)
 		t.closeConnection()
-		if t.Logs != nil {
+		t.logsMu.Lock()
+		if t.Logs != nil && !t.logsClosed {
+			t.logsClosed = true
 			close(t.Logs)
 		}
+		t.logsMu.Unlock()
 	})
 }
 
@@ -224,7 +237,7 @@ func (t *TunnelSession) connect() error {
 		// Surface the server's response body when available so a 401/403
 		// doesn't show as a generic dial error.
 		if resp != nil {
-			body, _ := io.ReadAll(resp.Body)
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 			resp.Body.Close()
 			msg := strings.TrimSpace(string(body))
 			if msg != "" {
@@ -234,6 +247,7 @@ func (t *TunnelSession) connect() error {
 		}
 		return err
 	}
+	conn.SetReadLimit(protocol.MaxMessageBytes)
 
 	// Send hello
 	hello := protocol.Hello{
@@ -241,7 +255,7 @@ func (t *TunnelSession) connect() error {
 		Token:    t.Token,
 		TunnelID: t.TunnelID,
 	}
-	if err := conn.WriteJSON(hello); err != nil {
+	if err := t.writeJSON(conn, hello); err != nil {
 		conn.Close()
 		return err
 	}
@@ -279,9 +293,7 @@ func (t *TunnelSession) readLoop() error {
 
 		switch msg.Type {
 		case string(protocol.TypePing):
-			t.writeMu.Lock()
-			_ = conn.WriteJSON(protocol.Pong{Type: string(protocol.TypePong)})
-			t.writeMu.Unlock()
+			_ = t.writeJSON(conn, protocol.Pong{Type: string(protocol.TypePong)})
 		case string(protocol.TypeRequest):
 			var req protocol.ProxyRequest
 			if err := json.Unmarshal(data, &req); err != nil {
@@ -355,17 +367,28 @@ func (t *TunnelSession) handleRequest(req protocol.ProxyRequest) {
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, int64(protocol.MaxBodyBytes)+1))
 	if err != nil {
 		t.sendResponse(req.ReqID, 502, nil, "")
+		t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: 502, ReqID: req.ReqID, ReqBytes: len(body), Latency: time.Since(start)})
+		return
+	}
+	if len(respBody) > protocol.MaxBodyBytes {
+		t.sendResponse(req.ReqID, 502, map[string]string{"Content-Type": "text/plain; charset=utf-8"}, base64.StdEncoding.EncodeToString([]byte("local response too large")))
 		t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: 502, ReqID: req.ReqID, ReqBytes: len(body), Latency: time.Since(start)})
 		return
 	}
 
 	// Strip hop-by-hop headers and flatten to the format expected by the server
 	respHeaders := make(map[string]string)
+	connectionTokens := make(map[string]bool)
+	for _, value := range resp.Header.Values("Connection") {
+		for _, token := range strings.Split(value, ",") {
+			connectionTokens[strings.ToLower(strings.TrimSpace(token))] = true
+		}
+	}
 	for k, v := range resp.Header {
-		if hopByHop[k] {
+		if hopByHop[k] || strings.EqualFold(k, "Content-Length") || connectionTokens[strings.ToLower(k)] {
 			continue
 		}
 		if len(v) == 0 {
@@ -379,13 +402,6 @@ func (t *TunnelSession) handleRequest(req protocol.ProxyRequest) {
 			respHeaders[k] = strings.Join(v, ", ")
 		}
 	}
-	// Also strip any headers named in the Connection header
-	if connHdr := respHeaders["Connection"]; connHdr != "" {
-		for _, h := range strings.Split(connHdr, ",") {
-			delete(respHeaders, strings.TrimSpace(h))
-		}
-	}
-
 	t.sendResponse(req.ReqID, resp.StatusCode, respHeaders, base64.StdEncoding.EncodeToString(respBody))
 	lat := time.Since(start)
 	t.emitLog(RequestLog{Time: start, Method: req.Method, Path: req.Path, Status: resp.StatusCode, ReqID: req.ReqID, ReqBytes: len(body), RespBytes: len(respBody), Latency: lat})
@@ -395,7 +411,9 @@ func (t *TunnelSession) handleRequest(req protocol.ProxyRequest) {
 // emitLog sends a request log to the TUI if a channel is wired.
 // Non-blocking: a slow consumer never stalls the relay.
 func (t *TunnelSession) emitLog(l RequestLog) {
-	if t.Logs == nil {
+	t.logsMu.RLock()
+	defer t.logsMu.RUnlock()
+	if t.Logs == nil || t.logsClosed {
 		return
 	}
 	select {
@@ -427,11 +445,7 @@ func p50Of(lats []time.Duration) time.Duration {
 	}
 	sorted := make([]time.Duration, len(lats))
 	copy(sorted, lats)
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
+	slices.Sort(sorted)
 	mid := len(sorted) / 2
 	if len(sorted)%2 == 0 {
 		return (sorted[mid-1] + sorted[mid]) / 2
@@ -451,10 +465,14 @@ func (t *TunnelSession) sendResponse(reqID string, status int, headers map[strin
 		Headers: headers,
 		BodyB64: bodyB64,
 	}
-	// Serialize writes to prevent concurrent goroutines from interleaving JSON frames
+	_ = t.writeJSON(conn, resp)
+}
+
+func (t *TunnelSession) writeJSON(conn *websocket.Conn, value any) error {
 	t.writeMu.Lock()
 	defer t.writeMu.Unlock()
-	_ = conn.WriteJSON(resp)
+	_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	return conn.WriteJSON(value)
 }
 
 func (t *TunnelSession) connection() *websocket.Conn {
@@ -464,7 +482,10 @@ func (t *TunnelSession) connection() *websocket.Conn {
 }
 
 func (t *TunnelSession) closeConnection() {
-	conn := t.connection()
+	t.connMu.Lock()
+	conn := t.conn
+	t.conn = nil
+	t.connMu.Unlock()
 	if conn != nil {
 		_ = conn.Close()
 	}

@@ -6,9 +6,10 @@ import "github.com/charmbracelet/lipgloss"
 // (dark mode): acid-lime accent, safety-orange secondary, near-black surfaces.
 //
 // Web tokens (globals.css .dark):
-//   --accent: #b8f34a   --secondary: #ff7043
-//   --background: #0b0d0a   --card: #12150f   --foreground: #f2f3ea
-//   --success: #63d68b   --warning: #ffbd5a   --danger: #ff6b6b
+//
+//	--accent: #b8f34a   --secondary: #ff7043
+//	--background: #0b0d0a   --card: #12150f   --foreground: #f2f3ea
+//	--success: #63d68b   --warning: #ffbd5a   --danger: #ff6b6b
 var (
 	// Accent (acid lime) — primary brand signal
 	Accent      = lipgloss.Color("#b8f34a")

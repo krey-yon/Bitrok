@@ -22,7 +22,7 @@ import (
 	"github.com/bitrok/bitrok/pkg/api"
 )
 
-// startFlags are shared by `bitrok <name> <port>`, `bitrok http`, and `bitrok ws`.
+// startFlags are shared by `bitrok <name> <port>` and `bitrok http`.
 type startFlags struct {
 	Detach   bool
 	Open     bool
@@ -108,7 +108,10 @@ func runStart(name string, port int, flags startFlags) error {
 		if domain == "" {
 			domain = "bitrok.tech"
 		}
-		host = slug + "-" + util.Slugify(username) + "." + domain
+		slug, host, err = util.BuildTunnelHost(slug, username, domain)
+		if err != nil {
+			return err
+		}
 	}
 	if err := util.ValidateHostname(host); err != nil {
 		return err
@@ -182,7 +185,7 @@ func foregroundStart(name string, port int, host string, cfg *config.CLIConfig, 
 	detachedWorker := runstate.IsDetached()
 
 	if !detachedWorker && !flags.NoAnim {
-		ui.PrintAnimatedBootBanner("v0.3.0")
+		ui.PrintAnimatedBootBanner(Version)
 	}
 
 	localAddr := fmt.Sprintf("localhost:%d", port)
@@ -293,7 +296,7 @@ type tunnelOpts struct {
 func runTunnelSession(opts tunnelOpts) error {
 	pubURL := publicURLFor(opts.ServerURL, opts.Host)
 	if opts.ShowUI && !opts.SkipIntro {
-		ui.PrintBootBanner("v0.3.0")
+		ui.PrintBootBanner(Version)
 		ui.BootSequence(ui.DefaultBootSteps(opts.Host))
 		fmt.Printf("  %s %s %s %s\n",
 			ui.Icon(ui.IconGlobe, ui.Accent),

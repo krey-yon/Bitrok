@@ -11,7 +11,8 @@ import (
 
 // CLIConfig holds user-level configuration for the bitrok CLI.
 //
-// ServerURL is the Go *relay* API (tunnels + WebSocket), e.g. http://localhost:8080.
+// ServerURL is the Go relay API and authenticated WebSocket control channel,
+// e.g. http://localhost:8080.
 // WebURL is the dashboard used only for browser login (token minting), e.g. http://localhost:3000.
 // They are different processes — pointing ServerURL at the Next.js app causes
 // "Unauthorized" because the web /api/tunnels route expects a session cookie, not a CLI JWT.
@@ -61,16 +62,39 @@ func Save(cfg *CLIConfig) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
+	if err := os.Chmod(dir, 0700); err != nil {
+		return err
+	}
 	path := ConfigPath()
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	return writeJSONFile(path, cfg)
+}
+
+func writeJSONFile(path string, value any) error {
+	dir := filepath.Dir(path)
+	f, err := os.CreateTemp(dir, ".bitrok-*.tmp")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	if err := f.Chmod(0600); err != nil {
+		_ = f.Close()
+		return err
+	}
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(cfg)
+	if err := enc.Encode(value); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // Normalize trims whitespace and trailing slashes on URLs.
@@ -90,6 +114,14 @@ func (c *CLIConfig) Validate() error {
 	if c.Token == "" {
 		return fmt.Errorf("auth token not configured; run 'bitrok login'")
 	}
+	if err := validateServiceURL("relay server", c.ServerURL); err != nil {
+		return err
+	}
+	if c.WebURL != "" {
+		if err := validateServiceURL("web dashboard", c.WebURL); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -99,7 +131,37 @@ func NormalizeURL(raw string) string {
 	if raw == "" {
 		return ""
 	}
+	if !strings.Contains(raw, "://") {
+		host := raw
+		if i := strings.IndexByte(host, '/'); i >= 0 {
+			host = host[:i]
+		}
+		scheme := "https://"
+		if parsed, err := url.Parse("//" + host); err == nil && isLoopbackHost(parsed.Hostname()) {
+			scheme = "http://"
+		}
+		raw = scheme + raw
+	}
 	return strings.TrimRight(raw, "/")
+}
+
+func validateServiceURL(label, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("%s must be an http or https URL", label)
+	}
+	if u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+		return fmt.Errorf("%s URL must not contain credentials, a path, query, or fragment", label)
+	}
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) {
+		return fmt.Errorf("%s must use HTTPS unless it points to localhost", label)
+	}
+	return nil
+}
+
+func isLoopbackHost(host string) bool {
+	host = strings.Trim(strings.ToLower(host), "[]")
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 // Production hosts.

@@ -19,9 +19,9 @@ import (
 type PetMood int
 
 const (
-	PetIdle    PetMood = iota // slow breathing, occasional blink
-	PetHappy                  // reacts to a request landing
-	PetAlert                  // reacts to an error / 5xx
+	PetIdle  PetMood = iota // slow breathing, occasional blink
+	PetHappy                // reacts to a request landing
+	PetAlert                // reacts to an error / 5xx
 )
 
 // petFramesIdle is the pet's default breathing loop.

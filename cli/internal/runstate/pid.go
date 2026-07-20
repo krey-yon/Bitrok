@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/bitrok/bitrok/cli/internal/config"
@@ -33,6 +32,7 @@ type TunnelMeta struct {
 	BytesIn    int64     `json:"bytes_in"`
 	BytesOut   int64     `json:"bytes_out"`
 	AllowIPs   []string  `json:"allow_ips,omitempty"`
+	Executable string    `json:"executable,omitempty"`
 }
 
 func metaPath(name string) string {
@@ -129,9 +129,10 @@ func Alive(m *TunnelMeta) bool {
 	if err != nil {
 		return false
 	}
-	// Signal 0 checks existence without killing (POSIX).
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
+	if !processAlive(proc) {
+		return false
+	}
+	return m.Executable == "" || processMatches(m.PID, m.Executable)
 }
 
 // Stop kills a named tunnel's local process (SIGTERM, then SIGKILL after 3s).
@@ -152,7 +153,15 @@ func Stop(name string) error {
 	if err != nil {
 		return err
 	}
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
+	expectedExecutable := m.Executable
+	if expectedExecutable == "" {
+		expectedExecutable, _ = os.Executable()
+	}
+	if expectedExecutable != "" && !processMatches(m.PID, expectedExecutable) {
+		_ = RemoveMeta(name)
+		return fmt.Errorf("refusing to stop pid %d: it is not the recorded Bitrok process", m.PID)
+	}
+	if err := requestProcessStop(proc); err != nil {
 		return fmt.Errorf("signal %d: %w", m.PID, err)
 	}
 	// Wait up to 3s for graceful exit.
@@ -164,7 +173,7 @@ func Stop(name string) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	_ = proc.Signal(syscall.SIGKILL)
+	_ = forceProcessStop(proc)
 	_ = RemoveMeta(name)
 	return nil
 }
@@ -188,16 +197,18 @@ func Register(name, host, publicURL, tunnelID string, port int, detached bool, a
 	if existing, _ := ReadMeta(name); existing != nil && Alive(existing) {
 		return nil, fmt.Errorf("tunnel %q is already running (pid %d)", name, existing.PID)
 	}
+	executable, _ := os.Executable()
 	m := &TunnelMeta{
-		Name:      name,
-		PID:       os.Getpid(),
-		Host:      host,
-		Port:      port,
-		PublicURL: publicURL,
-		TunnelID:  tunnelID,
-		StartedAt: time.Now().UTC(),
-		Detached:  detached,
-		AllowIPs:  allowIPs,
+		Name:       name,
+		PID:        os.Getpid(),
+		Host:       host,
+		Port:       port,
+		PublicURL:  publicURL,
+		TunnelID:   tunnelID,
+		StartedAt:  time.Now().UTC(),
+		Detached:   detached,
+		AllowIPs:   allowIPs,
+		Executable: executable,
 	}
 	if detached {
 		m.LogPath = LogPath(name)

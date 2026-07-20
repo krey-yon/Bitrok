@@ -41,3 +41,25 @@ func Slugify(s string) string {
 	}
 	return s
 }
+
+// BuildTunnelHost joins an app and username into one DNS label, shortening the
+// app portion when necessary so the label never exceeds 63 bytes.
+func BuildTunnelHost(app, username, domain string) (string, string, error) {
+	app = Slugify(app)
+	username = Slugify(username)
+	domain = strings.ToLower(strings.Trim(strings.TrimSpace(domain), "."))
+	if app == "" || username == "" || domain == "" {
+		return "", "", fmt.Errorf("app, username, and domain are required")
+	}
+	maxAppLength := 63 - len(username) - 1
+	if maxAppLength < 1 {
+		return "", "", fmt.Errorf("username is too long for a tunnel hostname")
+	}
+	if len(app) > maxAppLength {
+		app = strings.Trim(app[:maxAppLength], "-")
+	}
+	if app == "" {
+		return "", "", fmt.Errorf("app name is too long for a tunnel hostname")
+	}
+	return app, app + "-" + username + "." + domain, nil
+}

@@ -101,7 +101,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 	}
 
 	if !noAnim {
-		ui.PrintAnimatedBootBanner("v0.3.0")
+		ui.PrintAnimatedBootBanner(Version)
 	}
 	ui.Section("starting from " + filepath.Base(path))
 
@@ -189,7 +189,10 @@ func yamlIdentity(key string, t config.YAMLTunnel, username, domain string) (nam
 		if user == "" {
 			host = name + "." + domain
 		} else {
-			host = name + "-" + user + "." + domain
+			name, host, err = util.BuildTunnelHost(name, user, domain)
+			if err != nil {
+				return "", "", 0, err
+			}
 		}
 	}
 	return name, host, port, nil

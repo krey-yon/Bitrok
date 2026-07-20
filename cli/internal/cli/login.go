@@ -19,7 +19,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
-	// --server is the Go *relay* (API + WebSocket). --web is the dashboard for minting tokens.
+	// --server is the Go relay (HTTP API + authenticated WebSocket control channel).
 	loginCmd.Flags().StringP("server", "s", "", "Relay server URL (default: https://api.bitrok.tech)")
 	loginCmd.Flags().String("web", "", "Dashboard URL for token page (default: https://bitrok.tech)")
 }

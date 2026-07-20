@@ -1,5 +1,7 @@
 # bitrok CLI UI Overhaul — A pi.dev-Inspired Plan
 
+> Historical design notes only. Use [docs/cli.md](cli.md) for shipped commands and behavior.
+
 > **Goal:** Transform the bitrok CLI from a functional cobra+lipgloss tool into a polished, premium-feeling TUI that rivals pi.dev's UX — while staying true to bitrok's identity (tunnel management, not a coding agent).
 
 ---

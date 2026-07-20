@@ -45,16 +45,10 @@ func SaveRegistry(reg *TunnelRegistry) error {
 	if err := os.MkdirAll(Dir(), 0700); err != nil {
 		return err
 	}
-	path := RegistryPath()
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
+	if err := os.Chmod(Dir(), 0700); err != nil {
 		return err
 	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	return enc.Encode(reg)
+	return writeJSONFile(RegistryPath(), reg)
 }
 
 // TunnelRegistry is the top-level file structure.
