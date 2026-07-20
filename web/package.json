@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "test": "node --test --experimental-strip-types lib/username-claim.test.ts lib/github-identity.test.ts lib/install-routes.test.ts lib/security-txt.test.ts",
+    "test": "node --test --experimental-strip-types lib/username-claim.test.ts lib/github-authorization.test.ts lib/github-identity.test.ts lib/install-routes.test.ts lib/security-txt.test.ts",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",

@@ -48,6 +48,9 @@ export const auth = betterAuth({
       // GitHub Apps use their configured fine-grained permissions, not OAuth
       // App scopes. Better Auth otherwise adds read:user and user:email.
       disableDefaultScope: true,
+      // Better Auth 1.6 still serializes an empty scope (`scope=`). Route the
+      // request through a same-origin bridge that removes it before GitHub.
+      authorizationEndpoint: `${baseURL}/api/github-authorize`,
       getUserInfo: async (token) => {
         if (!token.accessToken) return null;
         return fetchVerifiedGithubIdentity(token.accessToken);
