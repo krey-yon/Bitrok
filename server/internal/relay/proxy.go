@@ -18,6 +18,8 @@ import (
 
 var reqIDCounter atomic.Uint64
 
+const inactiveTunnelMessage = "This tunnel is not active yet. Ask the tunnel owner to start or refresh it from the Bitrok CLI."
+
 // ProxyHandler handles incoming HTTP requests and routes them through WS sessions.
 type ProxyHandler struct {
 	Hub   *Hub
@@ -52,14 +54,14 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"x_forwarded_host", r.Header.Get("X-Forwarded-Host"),
 			"path", r.URL.Path,
 		)
-		http.Error(w, "tunnel not found", http.StatusNotFound)
+		http.Error(w, inactiveTunnelMessage, http.StatusServiceUnavailable)
 		return
 	}
 
 	session := p.Hub.Get(tun.ID)
 	if session == nil {
 		slog.Warn("proxy tunnel not active", "host", host, "tunnel_id", tun.ID, "path", r.URL.Path)
-		http.Error(w, "tunnel not active", http.StatusServiceUnavailable)
+		http.Error(w, inactiveTunnelMessage, http.StatusServiceUnavailable)
 		return
 	}
 

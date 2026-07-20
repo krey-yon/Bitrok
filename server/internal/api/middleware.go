@@ -32,9 +32,18 @@ func getReqID(ctx context.Context) string {
 // ctxKeyUserID is used to store the authenticated user ID in context.
 type ctxKeyUserID struct{}
 
+type ctxKeyUsername struct{}
+
 func getUserID(ctx context.Context) string {
 	if uid, ok := ctx.Value(ctxKeyUserID{}).(string); ok {
 		return uid
+	}
+	return ""
+}
+
+func getUsername(ctx context.Context) string {
+	if username, ok := ctx.Value(ctxKeyUsername{}).(string); ok {
+		return username
 	}
 	return ""
 }
@@ -53,6 +62,10 @@ func Error(w http.ResponseWriter, status int, err string) {
 
 // AuthMiddleware validates the Bearer token against configured auth tokens.
 func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	opaqueTokens, err := newOpaqueTokenStore(cfg.RedisURL)
+	if err != nil {
+		slog.Error("opaque token store disabled", "error", err)
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			h := r.Header.Get("Authorization")
@@ -87,13 +100,30 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				valid = jwtOK
 			}
 
+			username := ""
+			if !valid && strings.HasPrefix(token, "br_sk_") {
+				record, lookupErr := opaqueTokens.lookup(r.Context(), token)
+				if lookupErr != nil {
+					slog.Warn("opaque token lookup failed", "error", lookupErr)
+				}
+				if record != nil {
+					valid = true
+					userID = record.UserID
+					username = record.Username
+				}
+			}
+
 			if !valid {
 				slog.Warn("auth_failed", "ip", r.RemoteAddr, "path", r.URL.Path, "reason", "invalid token")
 				Error(w, http.StatusUnauthorized, "invalid token")
 				return
 			}
 
+			if username != "" {
+				w.Header().Set("X-Bitrok-Username", username)
+			}
 			ctx := context.WithValue(r.Context(), ctxKeyUserID{}, userID)
+			ctx = context.WithValue(ctx, ctxKeyUsername{}, username)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

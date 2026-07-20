@@ -15,6 +15,7 @@ type Config struct {
 	DBPath              string   `json:"db_path"`
 	AuthTokens          []string `json:"auth_tokens"` // static tokens (backward compat)
 	JWTSecret           string   `json:"jwt_secret"`  // for OAuth tokens from webapp
+	RedisURL            string   `json:"redis_url"`   // shared opaque CLI token store
 	LogLevel            string   `json:"log_level"`
 	TLSCertPath         string   `json:"tls_cert_path"`
 	TLSKeyPath          string   `json:"tls_key_path"`
@@ -132,6 +133,9 @@ func (c *Config) loadEnv() {
 	}
 	if v := os.Getenv("BITROK_JWT_SECRET"); v != "" {
 		c.JWTSecret = v
+	}
+	if v := os.Getenv("UPSTASH_REDIS_KEY"); v != "" {
+		c.RedisURL = v
 	}
 	if v := os.Getenv("BITROK_TLS_CERT"); v != "" {
 		c.TLSCertPath = v
@@ -261,8 +265,8 @@ func (c *Config) Validate() error {
 	if c.Domain == "" {
 		return fmt.Errorf("domain cannot be empty")
 	}
-	if len(c.AuthTokens) == 0 && c.JWTSecret == "" {
-		return fmt.Errorf("at least one auth token or jwt_secret is required")
+	if len(c.AuthTokens) == 0 && c.JWTSecret == "" && c.RedisURL == "" {
+		return fmt.Errorf("at least one auth token, jwt_secret, or Redis token store is required")
 	}
 	if c.JWTExpectedIssuer == "" {
 		c.JWTExpectedIssuer = "bitrok"
