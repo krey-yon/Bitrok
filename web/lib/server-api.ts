@@ -78,8 +78,9 @@ async function serverFetch(
   userId: string,
   path: string,
   init: RequestInit = {},
+  username?: string,
 ): Promise<Response> {
-  const token = mintServerToken(userId);
+  const token = mintServerToken(userId, undefined, 60, username);
   const base = serverBaseUrl();
 
   const controller = new AbortController();
@@ -131,11 +132,17 @@ export async function getServerTunnels(userId: string): Promise<TunnelDTO[]> {
 export async function createServerTunnel(
   userId: string,
   body: { name: string; host: string; port: number },
+  username: string,
 ): Promise<TunnelDTO> {
-  const res = await serverFetch(userId, "/api/tunnels", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  const res = await serverFetch(
+    userId,
+    "/api/tunnels",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    username,
+  );
   if (!res.ok) throw new ServerApiError(res.status, await errorMessage(res));
   return (await res.json()) as TunnelDTO;
 }

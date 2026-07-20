@@ -32,9 +32,9 @@ export function mintServerToken(
   username?: string,
 ): string {
   const secret = process.env.BITROK_JWT_SECRET;
-  if (!secret) {
+  if (!secret || secret.length < 32) {
     throw new Error(
-      "BITROK_JWT_SECRET is not configured. The web dashboard needs it to talk to the relay server.",
+      "BITROK_JWT_SECRET must contain at least 32 bytes. The web dashboard and relay must share the same secret.",
     );
   }
 

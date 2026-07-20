@@ -1,24 +1,13 @@
 import { NextResponse } from "next/server";
+import { buildSecurityTxt } from "@/lib/security-txt";
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  const contact = process.env.SECURITY_CONTACT_EMAIL || "security@example.com";
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://bitrok.tech").replace(/\/+$/, "");
+  const contact = process.env.SECURITY_CONTACT_EMAIL || "security@bitrok.tech";
 
-  const lines = [
-    `Contact: mailto:${contact}`,
-    `Expires: 2026-12-31T23:59:59Z`,
-  ];
-
-  if (baseUrl) {
-    lines.push(`Acknowledgments: ${baseUrl}/security`);
-    lines.push(`Canonical: ${baseUrl}/.well-known/security.txt`);
-    lines.push(`Policy: ${baseUrl}/security`);
-  }
-
-  lines.push("Preferred-Languages: en");
-
-  return new NextResponse(lines.join("\n"), {
+  return new NextResponse(buildSecurityTxt(baseUrl, contact), {
     headers: {
+      "Cache-Control": "public, max-age=86400",
       "Content-Type": "text/plain; charset=utf-8",
     },
   });

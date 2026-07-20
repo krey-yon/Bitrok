@@ -5,6 +5,11 @@ GITHUB_REPO="krey-yon/Bitrok"
 INSTALL_DIR="\${BITROK_INSTALL_DIR:-\${HOME}/.local/bin}"
 VERSION="\${BITROK_VERSION:-latest}"
 
+case "$VERSION" in
+  latest|v[0-9]*.[0-9]*.[0-9]*) ;;
+  *) echo "bitrok: invalid version: $VERSION" >&2; exit 1 ;;
+esac
+
 OS="$(uname -s)"
 case "$OS" in
   Darwin) OS="darwin" ;;
@@ -19,25 +24,53 @@ case "$ARCH" in
   *) echo "bitrok: unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
+ARCHIVE_NAME="bitrok_\${OS}_\${ARCH}.tar.gz"
 if [ "$VERSION" = "latest" ]; then
-  URL="https://github.com/\${GITHUB_REPO}/releases/latest/download/bitrok_\${OS}_\${ARCH}.tar.gz"
+  BASE_URL="https://github.com/\${GITHUB_REPO}/releases/latest/download"
 else
-  URL="https://github.com/\${GITHUB_REPO}/releases/download/\${VERSION}/bitrok_\${OS}_\${ARCH}.tar.gz"
+  BASE_URL="https://github.com/\${GITHUB_REPO}/releases/download/\${VERSION}"
 fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 echo "bitrok: downloading $VERSION ($OS/$ARCH)..."
-if command -v curl >/dev/null 2>&1; then
-  curl -fsSL -o "$TMP_DIR/bitrok.tar.gz" "$URL"
-elif command -v wget >/dev/null 2>&1; then
-  wget -q -O "$TMP_DIR/bitrok.tar.gz" "$URL"
+download() {
+  destination="$1"
+  url="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$destination" "$url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$destination" "$url"
+  else
+    echo "bitrok: curl or wget is required" >&2
+    exit 1
+  fi
+}
+download "$TMP_DIR/bitrok.tar.gz" "$BASE_URL/$ARCHIVE_NAME"
+download "$TMP_DIR/checksums.txt" "$BASE_URL/checksums.txt"
+EXPECTED="$(awk -v archive="$ARCHIVE_NAME" '$2 == archive { print $1; exit }' "$TMP_DIR/checksums.txt")"
+if ! printf '%s' "$EXPECTED" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+  echo "bitrok: release checksum for $ARCHIVE_NAME was not found" >&2
+  exit 1
+fi
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL="$(sha256sum "$TMP_DIR/bitrok.tar.gz" | awk '{ print $1 }')"
+elif command -v shasum >/dev/null 2>&1; then
+  ACTUAL="$(shasum -a 256 "$TMP_DIR/bitrok.tar.gz" | awk '{ print $1 }')"
 else
-  echo "bitrok: curl or wget is required" >&2
+  echo "bitrok: sha256sum or shasum is required" >&2
+  exit 1
+fi
+if [ "$ACTUAL" != "$EXPECTED" ]; then
+  echo "bitrok: checksum verification failed for $ARCHIVE_NAME" >&2
   exit 1
 fi
 
 tar -xzf "$TMP_DIR/bitrok.tar.gz" -C "$TMP_DIR"
+if [ ! -f "$TMP_DIR/bitrok" ]; then
+  echo "bitrok: release archive did not contain the bitrok binary" >&2
+  exit 1
+fi
 mkdir -p "$INSTALL_DIR"
 mv "$TMP_DIR/bitrok" "$INSTALL_DIR/bitrok"
 chmod +x "$INSTALL_DIR/bitrok"

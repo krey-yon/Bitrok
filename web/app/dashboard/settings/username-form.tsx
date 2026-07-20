@@ -6,6 +6,7 @@ import { AtSign, Check, CircleX, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { safeReturnPath } from "@/lib/safe-return-path";
 
 type Props = {
   initialUsername: string | null;
@@ -89,13 +90,9 @@ export function UsernameForm({ initialUsername, returnUrl }: Props) {
       }
       setSaved(data.username);
       setValue(data.username);
-      setSuccess(
-        saved
-          ? "Username updated. Generate a new CLI token so tunnels use the new slug."
-          : "Username saved. Your tunnels will use this slug.",
-      );
-      if (returnUrl?.startsWith("/")) {
-        router.push(returnUrl);
+      setSuccess("Username saved. Your tunnels will use this slug.");
+      if (returnUrl) {
+        router.push(safeReturnPath(returnUrl, "/dashboard"));
         router.refresh();
       }
     } catch {
@@ -124,6 +121,7 @@ export function UsernameForm({ initialUsername, returnUrl }: Props) {
             spellCheck={false}
             maxLength={32}
             value={value}
+            disabled={Boolean(initialUsername)}
             onChange={(e) => {
               setValue(e.target.value);
               setError("");
@@ -192,22 +190,26 @@ export function UsernameForm({ initialUsername, returnUrl }: Props) {
         </div>
       )}
 
-      <Button
-        type="submit"
-        variant="accent"
-        disabled={loading || !dirty || !previewSlug || availability === "checking" || availability === "taken"}
-        arrow={!loading}
-      >
-        {loading ? (
-          <>
-            <Spinner /> Saving…
-          </>
-        ) : saved ? (
-          "Update username"
-        ) : (
-          "Create username"
-        )}
-      </Button>
+      {saved ? (
+        <p className="text-xs leading-5 text-muted-foreground">
+          Usernames are permanent because active CLI credentials authorize this exact namespace.
+        </p>
+      ) : (
+        <Button
+          type="submit"
+          variant="accent"
+          disabled={loading || !dirty || !previewSlug || availability === "checking" || availability === "taken"}
+          arrow={!loading}
+        >
+          {loading ? (
+            <>
+              <Spinner /> Saving…
+            </>
+          ) : (
+            "Create username"
+          )}
+        </Button>
+      )}
     </form>
   );
 }

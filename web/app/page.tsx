@@ -43,14 +43,14 @@ export default function Home() {
                 Your backend can live <span className="relative inline-block text-accent"><span className="relative z-10">anywhere.</span><svg className="absolute -bottom-2 left-0 h-3 w-full" viewBox="0 0 400 14" preserveAspectRatio="none" aria-hidden><path d="M3 10C92 2 267 2 397 8" fill="none" stroke="var(--secondary)" strokeWidth="4" strokeLinecap="round" /></svg></span>
               </h1>
               <p className="hero-copy mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground animate-slide-up [animation-delay:80ms] sm:text-lg sm:leading-8">
-                Give a local API, WebSocket game, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
+                Give a local API, webhook receiver, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
               </p>
               <div className="hero-actions mt-7 flex flex-col gap-3 sm:flex-row animate-slide-up [animation-delay:140ms]">
                 <Link href="/register" className={buttonClassName({ variant: "accent", size: "lg", className: "sm:min-w-44" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link>
                 <Link href="#how-it-works" className={buttonClassName({ variant: "ghost", size: "lg" })}>See the 30-second setup</Link>
               </div>
               <div className="hero-benefits mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                {['Stable across restarts', 'HTTP + WebSockets', 'Self-hostable'].map((item) => <span key={item} className="inline-flex items-center gap-2"><Check className="size-3.5 text-accent" aria-hidden />{item}</span>)}
+                {['Stable across restarts', 'HTTP requests', 'Self-hostable'].map((item) => <span key={item} className="inline-flex items-center gap-2"><Check className="size-3.5 text-accent" aria-hidden />{item}</span>)}
               </div>
             </div>
 
@@ -149,7 +149,7 @@ function InstallCommand({ label, command, prompt }: { label: string; command: st
 const TRUST_ITEMS = [
   { value: "1 URL", label: "across every restart" },
   { value: "30 sec", label: "from install to public" },
-  { value: "HTTP + WS", label: "request & realtime traffic" },
+  { value: "HTTP", label: "request traffic" },
   { value: "Your relay", label: "self-host when you want" },
 ] as const;
 
@@ -161,7 +161,7 @@ const STEPS = [
 
 const USE_CASES = [
   { icon: Code2, title: "APIs & webhooks", body: "Test OAuth callbacks, payments, and third-party webhooks against local code." },
-  { icon: Radio, title: "Realtime games", body: "Expose WebSocket servers for multiplayer prototypes and live demos." },
+  { icon: Radio, title: "Webhook testing", body: "Expose OAuth callbacks, payment hooks, and event receivers against local code." },
   { icon: Cloud, title: "Vercel frontends", body: "Keep one backend environment variable while development moves with you." },
   { icon: Server, title: "Internal tools", body: "Share dashboards, Kafka UIs, and admin services without deploying each one." },
 ] as const;

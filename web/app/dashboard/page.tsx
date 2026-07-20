@@ -122,7 +122,7 @@ export default async function DashboardPage() {
             icon={Route}
             label="Requests served"
             value={new Intl.NumberFormat("en").format(totalRequests)}
-            detail="all-time relay traffic"
+            detail="retained relay traffic"
           />
         </section>
 

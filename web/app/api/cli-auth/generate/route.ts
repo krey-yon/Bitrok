@@ -1,27 +1,15 @@
 import { auth } from "@/lib/auth";
 import { mintCliToken } from "@/lib/cli-token";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
-import { getTrustedOrigins } from "@/lib/app-url";
+import { getClientIp, hasTrustedOrigin } from "@/lib/request-security";
 import { getUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
-
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
-}
-
-// Validate Origin header for CSRF protection (www + apex + local).
-function validateOrigin(req: NextRequest): boolean {
-  const origin = req.headers.get("origin");
-  if (!origin) return true;
-  return getTrustedOrigins().includes(origin);
-}
 
 const TOKEN_TTL_DAYS = 30;
 
 export async function POST(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`cli-auth:generate:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`cli-auth:generate:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 5,
   });
@@ -35,7 +23,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!validateOrigin(req)) {
+  if (!hasTrustedOrigin(req)) {
     return NextResponse.json(
       { error: "Invalid origin" },
       { status: 403, headers }
@@ -48,8 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
     }
 
-    // Always embed a username claim — CLI builds hosts as app-<username>.domain.
-    // Legacy users may have null username; resolve + backfill before minting.
+    // Always embed a username claim - CLI builds hosts as app-<username>.domain.
     const sessionUser = session.user as {
       id: string;
       email?: string | null;

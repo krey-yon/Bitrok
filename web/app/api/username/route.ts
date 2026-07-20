@@ -7,12 +7,8 @@ import {
   slugify,
 } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, hasTrustedOrigin } from "@/lib/request-security";
 import { z } from "zod";
-
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
-}
 
 const bodySchema = z.object({
   username: z.string().min(1).max(64),
@@ -21,7 +17,7 @@ const bodySchema = z.object({
 /** GET /api/username — current username for the signed-in user. */
 export async function GET(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`username:get:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`username:get:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 60,
   });
@@ -54,10 +50,10 @@ export async function GET(req: NextRequest) {
   );
 }
 
-/** PUT /api/username — create or update username. */
+/** PUT /api/username - claim the account's permanent username. */
 export async function PUT(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`username:put:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`username:put:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 10,
   });
@@ -67,6 +63,10 @@ export async function PUT(req: NextRequest) {
       { error: "Rate limit exceeded. Please try again later." },
       { status: 429, headers },
     );
+  }
+
+  if (!hasTrustedOrigin(req)) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403, headers });
   }
 
   const session = await auth.api.getSession({ headers: req.headers });

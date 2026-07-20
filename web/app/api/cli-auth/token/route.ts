@@ -2,25 +2,13 @@ import { auth } from "@/lib/auth";
 import { mintCliToken } from "@/lib/cli-token";
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
-import { getTrustedOrigins } from "@/lib/app-url";
+import { getClientIp, hasTrustedOrigin } from "@/lib/request-security";
 import { getUsernameForUser } from "@/lib/username";
 import { NextRequest, NextResponse } from "next/server";
 
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
-}
-
-// Validate Origin header for CSRF protection (www + apex + local).
-function validateOrigin(req: NextRequest): boolean {
-  const origin = req.headers.get("origin");
-  if (!origin) return true;
-  return getTrustedOrigins().includes(origin);
-}
-
 export async function POST(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`cli-auth:token:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`cli-auth:token:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 5,
   });
@@ -35,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   // CSRF protection
-  if (!validateOrigin(req)) {
+  if (!hasTrustedOrigin(req)) {
     return NextResponse.json(
       { error: "Invalid origin" },
       { status: 403, headers }
@@ -62,7 +50,7 @@ export async function POST(req: NextRequest) {
       where: { state, status: "pending" },
     });
 
-    if (!authReq) {
+    if (!authReq || !authReq.callbackUrl) {
       return NextResponse.json(
         { error: "Invalid or expired state" },
         { status: 400, headers }
@@ -99,13 +87,20 @@ export async function POST(req: NextRequest) {
       30 * 24 * 60 * 60,
     );
 
-    // Update auth request
-    await prisma.cliAuthRequest.update({
-      where: { id: authReq.id },
+    // Claim the one-time state atomically. Concurrent approvals may mint an
+    // unreachable token, but only the winner can receive one in a response.
+    const claimed = await prisma.cliAuthRequest.updateMany({
+      where: { id: authReq.id, status: "pending", expiresAt: { gt: new Date() } },
       data: { status: "approved", userId: session.user.id },
     });
+    if (claimed.count !== 1) {
+      return NextResponse.json(
+        { error: "Invalid or expired state" },
+        { status: 400, headers },
+      );
+    }
 
-    return NextResponse.json({ token }, { headers });
+    return NextResponse.json({ token, callback: authReq.callbackUrl }, { headers });
   } catch (error) {
     console.error("cli-auth token error:", error);
     return NextResponse.json(

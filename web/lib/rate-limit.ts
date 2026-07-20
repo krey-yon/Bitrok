@@ -1,76 +1,102 @@
-// Simple in-memory rate limiter
-// For production, replace with Redis-based rate limiting
+import "server-only";
+
+import { redis } from "@/lib/redis";
 
 interface RateLimitEntry {
   count: number;
   resetTime: number;
 }
 
-const rateLimitStore = new Map<string, RateLimitEntry>();
-
-// Clean up expired entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetTime < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
 interface RateLimitOptions {
-  windowMs?: number; // Time window in milliseconds
-  maxRequests?: number; // Max requests per window
+  windowMs?: number;
+  maxRequests?: number;
 }
 
-export function rateLimit(
-  identifier: string,
-  options: RateLimitOptions = {}
-): { success: boolean; limit: number; remaining: number; resetTime: number } {
-  const { windowMs = 60 * 1000, maxRequests = 10 } = options;
-  const now = Date.now();
-
-  const entry = rateLimitStore.get(identifier);
-
-  if (!entry || entry.resetTime < now) {
-    // Create new entry
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetTime: now + windowMs,
-    };
-    rateLimitStore.set(identifier, newEntry);
-    return {
-      success: true,
-      limit: maxRequests,
-      remaining: maxRequests - 1,
-      resetTime: newEntry.resetTime,
-    };
-  }
-
-  if (entry.count >= maxRequests) {
-    return {
-      success: false,
-      limit: maxRequests,
-      remaining: 0,
-      resetTime: entry.resetTime,
-    };
-  }
-
-  entry.count++;
-  return {
-    success: true,
-    limit: maxRequests,
-    remaining: maxRequests - entry.count,
-    resetTime: entry.resetTime,
-  };
-}
-
-export function getRateLimitHeaders(result: {
+export type RateLimitResult = {
   success: boolean;
   limit: number;
   remaining: number;
   resetTime: number;
-}): Record<string, string> {
+};
+
+const localStore = new Map<string, RateLimitEntry>();
+let lastLocalCleanup = 0;
+
+const FIXED_WINDOW_SCRIPT = `
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+local ttl = redis.call("PTTL", KEYS[1])
+return {current, ttl}
+`;
+
+export async function rateLimit(
+  identifier: string,
+  options: RateLimitOptions = {},
+): Promise<RateLimitResult> {
+  const { windowMs = 60_000, maxRequests = 10 } = options;
+  const now = Date.now();
+
+  if (redis) {
+    try {
+      const result = (await redis.eval(
+        FIXED_WINDOW_SCRIPT,
+        1,
+        `bitrok:rate-limit:${identifier}`,
+        windowMs,
+      )) as [number, number];
+      const count = Number(result[0]);
+      const ttl = Math.max(Number(result[1]), 0);
+      return {
+        success: count <= maxRequests,
+        limit: maxRequests,
+        remaining: Math.max(maxRequests - count, 0),
+        resetTime: now + ttl,
+      };
+    } catch (error) {
+      console.warn("Redis rate limiter unavailable; using local fallback", error);
+    }
+  }
+
+  return localRateLimit(identifier, windowMs, maxRequests, now);
+}
+
+function localRateLimit(
+  identifier: string,
+  windowMs: number,
+  maxRequests: number,
+  now: number,
+): RateLimitResult {
+  if (now-lastLocalCleanup > 5 * 60_000) {
+    for (const [key, entry] of localStore.entries()) {
+      if (entry.resetTime <= now) localStore.delete(key);
+    }
+    lastLocalCleanup = now;
+  }
+
+  const entry = localStore.get(identifier);
+  if (!entry || entry.resetTime <= now) {
+    const created = { count: 1, resetTime: now + windowMs };
+    localStore.set(identifier, created);
+    return {
+      success: true,
+      limit: maxRequests,
+      remaining: maxRequests - 1,
+      resetTime: created.resetTime,
+    };
+  }
+
+  entry.count += 1;
+  return {
+    success: entry.count <= maxRequests,
+    limit: maxRequests,
+    remaining: Math.max(maxRequests - entry.count, 0),
+    resetTime: entry.resetTime,
+  };
+}
+
+export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
   return {
     "X-RateLimit-Limit": result.limit.toString(),
     "X-RateLimit-Remaining": result.remaining.toString(),

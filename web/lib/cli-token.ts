@@ -25,9 +25,9 @@ export async function mintCliToken(
   try {
     await redis.set(`bitrok:cli-token:${digest}`, JSON.stringify(record), "EX", ttlSeconds);
     return token;
-  } catch {
-    // Keep local development and temporary Redis outages compatible with the
-    // relay's existing JWT authentication path.
-    return mintServerToken(record.userId, record.email, ttlSeconds, record.username);
+  } catch (error) {
+    // When Redis is configured, silently issuing a non-revocable JWT changes
+    // the credential's security contract and can hide a split web/relay setup.
+    throw new Error("Could not store the revocable CLI token", { cause: error });
   }
 }

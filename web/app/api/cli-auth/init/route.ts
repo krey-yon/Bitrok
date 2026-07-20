@@ -1,25 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { rateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request-security";
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
-}
 
 // Validate callback URL to prevent open redirect
 function isValidCallbackUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    // Allow only http/https protocols
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return false;
-    }
-    // Optionally: restrict to specific domains
-    // const allowedDomains = ["localhost", "bitrok.dev"];
-    // return allowedDomains.includes(parsed.hostname);
-    return true;
+    const loopback =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]";
+    return (
+      parsed.protocol === "http:" &&
+      loopback &&
+      parsed.port !== "" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      parsed.hash === ""
+    );
   } catch {
     return false;
   }
@@ -27,7 +27,7 @@ function isValidCallbackUrl(url: string): boolean {
 
 export async function POST(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`cli-auth:init:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`cli-auth:init:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 5,
   });
@@ -59,16 +59,18 @@ export async function POST(req: NextRequest) {
     }
 
     const state = crypto.randomBytes(32).toString("hex");
+    await prisma.cliAuthRequest.deleteMany({ where: { expiresAt: { lt: new Date() } } });
 
     await prisma.cliAuthRequest.create({
       data: {
         state,
         status: "pending",
+        callbackUrl: callback,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       },
     });
 
-    const authUrl = `/cli-auth?state=${state}&callback=${encodeURIComponent(callback)}`;
+    const authUrl = `/cli-auth?state=${state}`;
 
     return NextResponse.json({ state, authUrl }, { headers });
   } catch (error) {

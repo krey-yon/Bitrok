@@ -7,7 +7,9 @@ const globalForRedis = globalThis as unknown as {
 };
 
 function createRedis(): Redis | null {
-  const connectionString = process.env.UPSTASH_REDIS_KEY?.trim();
+  const connectionString = (
+    process.env.BITROK_REDIS_URL || process.env.UPSTASH_REDIS_KEY
+  )?.trim();
   if (!connectionString) return null;
 
   return new Redis(connectionString, {

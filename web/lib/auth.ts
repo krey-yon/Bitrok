@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
 import { getAuthBaseURL, getTrustedOrigins } from "@/lib/app-url";
+import { selectVerifiedGithubEmail } from "@/lib/github-identity";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -35,10 +36,9 @@ export const auth = betterAuth({
   baseURL,
   trustedOrigins: getTrustedOrigins(),
   user: {
-    // `username` is the URL slug used in deterministic tunnel hosts
-    // (app-username.bitrok.tech). Populated from the GitHub login at signup.
+    // `username` is the immutable URL namespace claimed from dashboard settings.
     additionalFields: {
-      username: { type: "string", required: false, input: true, returned: true },
+      username: { type: "string", required: false, input: false, returned: true },
     },
   },
   socialProviders: {
@@ -46,18 +46,50 @@ export const auth = betterAuth({
       clientId: requireEnv("GITHUB_CLIENT_ID"),
       clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
       scope: ["read:user", "user:email"],
-      mapProfileToUser: (profile) => {
+      getUserInfo: async (token) => {
+        if (!token.accessToken) return null;
+        const headers = {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${token.accessToken}`,
+          "X-GitHub-Api-Version": "2022-11-28",
+        };
+        const [profileResponse, emailsResponse] = await Promise.all([
+          fetch("https://api.github.com/user", { headers }),
+          fetch("https://api.github.com/user/emails", { headers }),
+        ]);
+        if (!profileResponse.ok || !emailsResponse.ok) return null;
+
+        const profile = (await profileResponse.json()) as {
+          id?: number | string;
+          login?: string;
+          name?: string | null;
+          avatar_url?: string;
+        };
+        const emails = (await emailsResponse.json()) as Array<{
+          email?: string;
+          primary?: boolean;
+          verified?: boolean;
+        }>;
+        const email = selectVerifiedGithubEmail(emails);
+        if (!profile.id || !profile.login || !email) return null;
+
         return {
-          email: profile.email || `${profile.id}@users.noreply.github.com`,
-          name: profile.name || profile.login,
-          image: profile.avatar_url,
+          user: {
+            id: String(profile.id),
+            email,
+            emailVerified: true,
+            name: profile.name || profile.login,
+            image: profile.avatar_url,
+          },
+          data: profile,
         };
       },
     },
   },
   emailAndPassword: {
-    enabled: true,
-    autoSignIn: true,
+    // Password auth needs verified-email delivery and a recovery flow. Launch
+    // with one verified identity provider until those controls are available.
+    enabled: false,
   },
   advanced: {
     cookiePrefix: "bitrok",

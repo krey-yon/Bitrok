@@ -12,7 +12,7 @@ model User {
   email         String    @unique
   name          String?
   // URL slug used in deterministic tunnel hosts: <app>-<username>.bitrok.tech.
-  // Populated from the GitHub login at signup; backfilled for existing users.
+  // Claimed once from dashboard settings and immutable thereafter.
   username      String?   @unique
   emailVerified Boolean   @default(false)
   image         String?
@@ -75,6 +75,7 @@ model CliAuthRequest {
   state     String   @unique
   status    String   @default("pending") // pending | approved | rejected
   token     String?  // JWT token after approval
+  callbackUrl String? // Validated loopback callback bound to this state
   userId    String?
   createdAt DateTime @default(now())
   expiresAt DateTime

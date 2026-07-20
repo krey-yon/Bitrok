@@ -6,6 +6,8 @@ import {
   ServerApiError,
 } from "@/lib/server-api";
 import { NextRequest, NextResponse } from "next/server";
+import { getClientIp, hasTrustedOrigin } from "@/lib/request-security";
+import { getUsernameForUser } from "@/lib/username";
 import { z } from "zod";
 
 // This route is a thin proxy to the Go relay server's /api/tunnels.
@@ -13,19 +15,20 @@ import { z } from "zod";
 // the dashboard no longer keeps its own copy in Postgres.
 
 const createTunnelSchema = z.object({
-  name: z.string().min(1).max(100).regex(/^[a-zA-Z0-9-_]+$/),
-  host: z.string().min(1).max(255).regex(/^[a-zA-Z0-9-_.]+$/),
+  name: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1)
+    .max(63)
+    .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
+  host: z.string().trim().toLowerCase().min(1).max(253).regex(/^[a-z0-9.-]+$/),
   port: z.coerce.number().int().min(1).max(65535),
 });
 
-function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
-}
-
 export async function GET(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`tunnels:get:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`tunnels:get:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 30,
   });
@@ -58,7 +61,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const clientIp = getClientIp(req);
-  const rateLimitResult = rateLimit(`tunnels:post:${clientIp}`, {
+  const rateLimitResult = await rateLimit(`tunnels:post:${clientIp}`, {
     windowMs: 60 * 1000,
     maxRequests: 10,
   });
@@ -70,6 +73,10 @@ export async function POST(req: NextRequest) {
       { error: "Rate limit exceeded. Please try again later." },
       { status: 429, headers }
     );
+  }
+
+  if (!hasTrustedOrigin(req)) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403, headers });
   }
 
   const session = await auth.api.getSession({ headers: req.headers });
@@ -98,7 +105,19 @@ export async function POST(req: NextRequest) {
   const { name, host, port } = parsed.data;
 
   try {
-    const tunnel = await createServerTunnel(session.user.id, { name, host, port });
+    const username = await getUsernameForUser(session.user.id);
+    if (!username) {
+      return NextResponse.json(
+        { error: "Create a username before reserving a tunnel" },
+        { status: 409, headers },
+      );
+    }
+
+    const tunnel = await createServerTunnel(
+      session.user.id,
+      { name, host, port },
+      username,
+    );
     return NextResponse.json(tunnel, { status: 201, headers });
   } catch (err) {
     if (err instanceof ServerApiError) {

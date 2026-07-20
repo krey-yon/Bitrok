@@ -1,8 +1,24 @@
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
+const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+const umamiDomain = process.env.NEXT_PUBLIC_UMAMI_DOMAIN || "https://cloud.umami.is";
+let umamiOrigin = "";
+try {
+  umamiOrigin = new URL(umamiDomain).origin;
+} catch {
+  // Invalid optional analytics configuration must never weaken the CSP.
+}
+
+const scriptSources = ["'self'", "'unsafe-inline'"];
+const connectSources = ["'self'"];
+if (umamiWebsiteId && umamiOrigin) {
+  scriptSources.push(umamiOrigin);
+  connectSources.push(umamiOrigin);
+}
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   async headers() {
     return [
       {
@@ -42,14 +58,16 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' ${process.env.NEXT_PUBLIC_UMAMI_DOMAIN || "https://cloud.umami.is"}`,
+              `script-src ${scriptSources.join(" ")}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' https: data:",
               "font-src 'self'",
-              "connect-src 'self'",
+              `connect-src ${connectSources.join(" ")}`,
+              "object-src 'none'",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              ...(isProduction ? ["upgrade-insecure-requests"] : []),
             ].join("; "),
           },
         ],

@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/app/components/dashboard-header";
 import { SignOutButton } from "../sign-out-button";
 import { buttonClassName } from "@/components/ui/button";
 import { UsernameForm } from "./username-form";
+import { safeReturnPath } from "@/lib/safe-return-path";
 
 export default async function SettingsPage({
   searchParams,
@@ -15,7 +16,9 @@ export default async function SettingsPage({
   const session = await requireAuth();
   const username = await getUsernameForUser(session.user.id);
   const params = await searchParams;
-  const returnUrl = params.returnUrl?.startsWith("/") ? params.returnUrl : undefined;
+  const returnUrl = params.returnUrl
+    ? safeReturnPath(params.returnUrl, "/dashboard")
+    : undefined;
 
   return (
     <div className="min-h-full bg-page-gradient">
@@ -32,8 +35,8 @@ export default async function SettingsPage({
               {username ? "Your username." : "Choose your username."}
             </h1>
             <p className="mt-4 max-w-md text-pretty leading-7 text-muted-foreground">
-              This slug is baked into every public tunnel URL and into CLI tokens. Pick something
-              short you want on the internet.
+              This permanent slug is baked into every public tunnel URL and CLI token. Pick
+              something short you want on the internet.
             </p>
             <div className="mt-8 space-y-4 text-sm">
               <div className="flex gap-3">
@@ -54,8 +57,8 @@ export default async function SettingsPage({
                 <div>
                   <strong>CLI tokens carry it</strong>
                   <p className="mt-1 text-muted-foreground">
-                    After changing username, generate a new CLI token so new tunnels pick up the
-                    slug.
+                    Your username cannot change after it is claimed, so old credentials can never
+                    retain access to somebody else&apos;s namespace.
                   </p>
                 </div>
               </div>
@@ -71,11 +74,11 @@ export default async function SettingsPage({
 
           <section className="rounded-[var(--radius-xl)] border border-hairline bg-card/80 p-6 shadow-[0_24px_70px_rgb(0_0_0/8%)] sm:p-8">
             <h2 className="text-xl font-semibold">
-              {username ? "Update username" : "Create username"}
+              {username ? "Claimed username" : "Create username"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {username
-                ? "Changing this does not rename existing tunnel hosts — only new tunnels."
+                ? "This public namespace is permanently assigned to your account."
                 : "Required for clean tunnel URLs from the CLI."}
             </p>
             <div className="mt-7">

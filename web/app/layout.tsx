@@ -1,26 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bitrok.tech";
 
@@ -64,7 +45,7 @@ export const metadata: Metadata = {
       "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
     images: [
       {
-        url: `${baseUrl}/og-image.png`,
+        url: `${baseUrl}/opengraph-image`,
         width: 1200,
         height: 630,
         alt: "Bitrok — Self-Hosted Tunneling Infrastructure",
@@ -76,15 +57,15 @@ export const metadata: Metadata = {
     title: "Bitrok — Self-Hosted Tunnels",
     description:
       "Deterministic tunnels with custom subdomains. Your infra, your URLs, your rules.",
-    images: [`${baseUrl}/og-image.png`],
-    creator: "@bitrok",
+    images: [`${baseUrl}/opengraph-image`],
+    creator: "@Krey_yon",
   },
   alternates: {
     canonical: baseUrl,
   },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-  },
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 export default function RootLayout({
@@ -95,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>
@@ -108,18 +89,20 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Bitrok",
               url: baseUrl,
-              logo: `${baseUrl}/logo.png`,
+              logo: `${baseUrl}/icon.svg`,
               sameAs: [
-                "https://github.com/bitrok",
-                "https://twitter.com/bitrok",
+                "https://github.com/krey-yon/Bitrok",
+                "https://x.com/Krey_yon",
               ],
-              contactPoint: {
-                "@type": "ContactPoint",
-                email:
-                  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
-                  "support@example.com",
-                contactType: "customer service",
-              },
+              ...(process.env.NEXT_PUBLIC_SUPPORT_EMAIL
+                ? {
+                    contactPoint: {
+                      "@type": "ContactPoint",
+                      email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+                      contactType: "customer service",
+                    },
+                  }
+                : {}),
             }),
           }}
         />
@@ -131,14 +114,6 @@ export default function RootLayout({
               "@type": "WebSite",
               name: "Bitrok",
               url: baseUrl,
-              potentialAction: {
-                "@type": "SearchAction",
-                target: {
-                  "@type": "EntryPoint",
-                  urlTemplate: `${baseUrl}/search?q={search_term_string}`,
-                },
-                "query-input": "required name=search_term_string",
-              },
             }),
           }}
         />
@@ -173,12 +148,6 @@ export default function RootLayout({
             strategy="lazyOnload"
           />
         )}
-        <Script
-          defer
-          src="https://analytics.kreyon.in/script.js"
-          data-website-id="0a275d65-15c9-4a2f-8b64-8d835005ef0b"
-          strategy="lazyOnload"
-        />
       </body>
     </html>
   );

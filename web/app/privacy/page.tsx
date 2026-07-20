@@ -4,7 +4,7 @@ import { LegalSection, LegalShell } from "@/app/components/legal-shell";
 export const metadata: Metadata = { title: "Privacy Policy", description: "Bitrok privacy policy and data handling practices." };
 
 export default function PrivacyPage() {
-  const email = process.env.PRIVACY_CONTACT_EMAIL || "privacy@example.com";
+  const email = process.env.PRIVACY_CONTACT_EMAIL || "privacy@bitrok.tech";
   return <LegalShell eyebrow="Legal / Privacy" title="Privacy, without the fog." intro="A plain-language overview of what Bitrok collects, why it is needed, and the control you keep. Last revised July 19, 2026.">
     <LegalSection number="01" title="Information We Collect"><p>We collect information you provide when creating an account—such as your name, email, and authentication credentials—plus tunnel configuration and service usage needed to operate Bitrok.</p></LegalSection>
     <LegalSection number="02" title="How We Use It"><p>We use this information to provide, maintain, secure, and improve the service; communicate with you; and detect fraud or abuse.</p></LegalSection>

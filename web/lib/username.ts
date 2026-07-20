@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { markUsernameTaken, usernameMayBeTaken } from "@/lib/username-bloom";
+import { decideUsernameClaim } from "@/lib/username-claim";
 
 /** Host labels that must never be claimed as a user slug. */
 const RESERVED = new Set([
@@ -68,8 +69,9 @@ export async function checkUsernameAvailability(
 }
 
 /**
- * Explicit create/update of a username from the dashboard.
- * Validates format + uniqueness, then persists.
+ * Claims an immutable username from the dashboard. CLI credentials embed the
+ * username, so allowing it to change would leave old credentials authorized
+ * for a namespace that could later belong to another account.
  */
 export async function setUsernameForUser(
   userId: string,
@@ -78,6 +80,24 @@ export async function setUsernameForUser(
   const validated = validateUsername(raw);
   if (!validated.ok) return validated;
   const username = validated.username;
+
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true },
+  });
+  if (!current) {
+    return { ok: false, error: "Account not found." };
+  }
+  const decision = decideUsernameClaim(
+    current.username ? slugify(current.username) : null,
+    username,
+  );
+  if (decision.action === "unchanged") {
+    return { ok: true, username: decision.username };
+  }
+  if (decision.action === "reject") {
+    return { ok: false, error: "Username cannot be changed after it is created." };
+  }
 
   const taken = await prisma.user.findFirst({
     where: { username, NOT: { id: userId } },
@@ -88,7 +108,13 @@ export async function setUsernameForUser(
   }
 
   try {
-    await prisma.user.update({ where: { id: userId }, data: { username } });
+    const claimed = await prisma.user.updateMany({
+      where: { id: userId, username: null },
+      data: { username },
+    });
+    if (claimed.count !== 1) {
+      return { ok: false, error: "Username has already been created." };
+    }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, error: "That username is already taken." };
