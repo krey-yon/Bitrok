@@ -1,73 +1,42 @@
 package api
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type relayClaims struct {
+	Username string `json:"username,omitempty"`
+	jwt.RegisteredClaims
+}
+
 // validateJWT checks if a token is a valid, unexpired JWT signed with the given secret.
-func validateJWT(tokenString, secret, expectedAudience, expectedIssuer string) (userID string, ok bool) {
+func validateJWT(tokenString, secret, expectedAudience, expectedIssuer string) (userID, username string, ok bool) {
 	if secret == "" || tokenString == "" {
-		return "", false
+		return "", "", false
 	}
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(secret), nil
-	})
-	if err != nil || !token.Valid {
-		return "", false
+	claims := &relayClaims{}
+	options := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
 	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", false
-	}
-
-	// Check expiration
-	if exp, ok := claims["exp"].(float64); ok {
-		if time.Now().Unix() > int64(exp) {
-			return "", false
-		}
-	}
-
-	sub, _ := claims["sub"].(string)
-	if sub == "" {
-		return "", false
-	}
-
 	if expectedAudience != "" {
-		switch aud := claims["aud"].(type) {
-		case string:
-			if aud != expectedAudience {
-				return "", false
-			}
-		case []interface{}:
-			found := false
-			for _, a := range aud {
-				if s, ok := a.(string); ok && s == expectedAudience {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return "", false
-			}
-		default:
-			return "", false
-		}
+		options = append(options, jwt.WithAudience(expectedAudience))
 	}
-
 	if expectedIssuer != "" {
-		iss, _ := claims["iss"].(string)
-		if iss != expectedIssuer {
-			return "", false
-		}
+		options = append(options, jwt.WithIssuer(expectedIssuer))
 	}
 
-	return sub, true
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	}, options...)
+	if err != nil || !token.Valid {
+		return "", "", false
+	}
+
+	if claims.Subject == "" {
+		return "", "", false
+	}
+
+	return claims.Subject, claims.Username, true
 }

@@ -3,10 +3,16 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/bitrok/bitrok/pkg/protocol"
 )
+
+var domainLabelPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // Config holds server-side settings.
 type Config struct {
@@ -22,7 +28,10 @@ type Config struct {
 	JWTExpectedAudience string   `json:"jwt_expected_audience"`
 	JWTExpectedIssuer   string   `json:"jwt_expected_issuer"`
 	AllowInsecureWS     bool     `json:"allow_insecure_ws"`
+	TrustProxyHeaders   bool     `json:"trust_proxy_headers"`
 	MaxRequestBodyBytes int64    `json:"max_request_body_bytes"`
+	LogRetentionHours   int      `json:"log_retention_hours"`
+	MaxTunnelsPerUser   int      `json:"max_tunnels_per_user"`
 
 	// Timeouts (seconds)
 	ReadTimeout       int `json:"read_timeout"`
@@ -71,16 +80,18 @@ func Default() *Config {
 		RateLimitCapacity: 600,
 		RateLimitWindow:   60,
 		// WebSocket
-		WSMaxMessageSizeMB: 10,
+		WSMaxMessageSizeMB: protocol.MaxMessageBytes / (1024 * 1024),
 		WSHelloTimeoutSec:  10,
 		WSPingIntervalSec:  30,
 		WSReadTimeoutSec:   60,
 		WSWriteTimeoutSec:  10,
 		// SQLite pool
-		DBMaxOpenConns: 1,
-		DBMaxIdleConns: 1,
-		DBConnLifetime: 300,
-		DBConnIdleTime: 120,
+		DBMaxOpenConns:    1,
+		DBMaxIdleConns:    1,
+		DBConnLifetime:    300,
+		DBConnIdleTime:    120,
+		LogRetentionHours: 168,
+		MaxTunnelsPerUser: 25,
 	}
 }
 
@@ -134,7 +145,9 @@ func (c *Config) loadEnv() {
 	if v := os.Getenv("BITROK_JWT_SECRET"); v != "" {
 		c.JWTSecret = v
 	}
-	if v := os.Getenv("UPSTASH_REDIS_KEY"); v != "" {
+	if v := os.Getenv("BITROK_REDIS_URL"); v != "" {
+		c.RedisURL = v
+	} else if v := os.Getenv("UPSTASH_REDIS_KEY"); v != "" {
 		c.RedisURL = v
 	}
 	if v := os.Getenv("BITROK_TLS_CERT"); v != "" {
@@ -151,6 +164,9 @@ func (c *Config) loadEnv() {
 	}
 	if v := os.Getenv("BITROK_ALLOW_INSECURE_WS"); v != "" {
 		c.AllowInsecureWS, _ = strconv.ParseBool(v)
+	}
+	if v := os.Getenv("BITROK_TRUST_PROXY_HEADERS"); v != "" {
+		c.TrustProxyHeaders, _ = strconv.ParseBool(v)
 	}
 	if v := os.Getenv("BITROK_MAX_REQUEST_BODY_BYTES"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -241,6 +257,16 @@ func (c *Config) loadEnv() {
 			c.DBConnIdleTime = n
 		}
 	}
+	if v := os.Getenv("BITROK_LOG_RETENTION_HOURS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.LogRetentionHours = n
+		}
+	}
+	if v := os.Getenv("BITROK_MAX_TUNNELS_PER_USER"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.MaxTunnelsPerUser = n
+		}
+	}
 }
 
 func splitTokens(v string) []string {
@@ -265,11 +291,78 @@ func (c *Config) Validate() error {
 	if c.Domain == "" {
 		return fmt.Errorf("domain cannot be empty")
 	}
+	c.Domain = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(c.Domain), "."))
+	if !validDomain(c.Domain) {
+		return fmt.Errorf("domain must be a valid DNS name")
+	}
 	if len(c.AuthTokens) == 0 && c.JWTSecret == "" && c.RedisURL == "" {
 		return fmt.Errorf("at least one auth token, jwt_secret, or Redis token store is required")
+	}
+	if c.JWTSecret != "" && len(c.JWTSecret) < 32 {
+		return fmt.Errorf("jwt_secret must contain at least 32 bytes")
+	}
+	for _, token := range c.AuthTokens {
+		if len(token) < 32 {
+			return fmt.Errorf("static auth tokens must contain at least 32 bytes")
+		}
+	}
+	if (c.TLSCertPath == "") != (c.TLSKeyPath == "") {
+		return fmt.Errorf("tls_cert_path and tls_key_path must be configured together")
+	}
+	if c.RedisURL != "" {
+		u, err := url.Parse(c.RedisURL)
+		if err != nil || u.Host == "" || (u.Scheme != "redis" && u.Scheme != "rediss") {
+			return fmt.Errorf("redis_url must be a redis:// or rediss:// URL")
+		}
+	}
+	if c.MaxRequestBodyBytes < 1 {
+		return fmt.Errorf("max_request_body_bytes must be positive")
+	}
+	if c.RateLimitCapacity < 1 || c.RateLimitWindow < 1 {
+		return fmt.Errorf("rate limit capacity and window must be positive")
+	}
+	if c.ReadTimeout < 1 || c.WriteTimeout < 1 || c.IdleTimeout < 1 || c.ReadHeaderTimeout < 1 || c.ShutdownTimeout < 1 {
+		return fmt.Errorf("all server timeouts must be positive")
+	}
+	if c.WSMaxMessageSizeMB*1024*1024 < protocol.MaxMessageBytes {
+		return fmt.Errorf("ws_max_message_size_mb must be at least %d", protocol.MaxMessageBytes/(1024*1024))
+	}
+	if c.WSHelloTimeoutSec < 1 || c.WSPingIntervalSec < 1 || c.WSReadTimeoutSec < 1 || c.WSWriteTimeoutSec < 1 {
+		return fmt.Errorf("all websocket timeouts must be positive")
+	}
+	if c.DBMaxOpenConns < 1 || c.DBMaxIdleConns < 0 || c.DBConnLifetime < 0 || c.DBConnIdleTime < 0 {
+		return fmt.Errorf("invalid database pool configuration")
+	}
+	if c.LogRetentionHours < 1 {
+		return fmt.Errorf("log_retention_hours must be positive")
+	}
+	if c.MaxTunnelsPerUser < 1 {
+		return fmt.Errorf("max_tunnels_per_user must be positive")
 	}
 	if c.JWTExpectedIssuer == "" {
 		c.JWTExpectedIssuer = "bitrok"
 	}
+	if c.JWTExpectedAudience == "" {
+		c.JWTExpectedAudience = "bitrok-cli"
+	}
 	return nil
+}
+
+func validDomain(domain string) bool {
+	if domain == "localhost" {
+		return true
+	}
+	if domain == "" || len(domain) > 253 {
+		return false
+	}
+	labels := strings.Split(domain, ".")
+	if len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if !domainLabelPattern.MatchString(label) {
+			return false
+		}
+	}
+	return true
 }

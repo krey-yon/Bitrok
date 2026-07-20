@@ -34,6 +34,8 @@ type ctxKeyUserID struct{}
 
 type ctxKeyUsername struct{}
 
+type ctxKeyBearerToken struct{}
+
 func getUserID(ctx context.Context) string {
 	if uid, ok := ctx.Value(ctxKeyUserID{}).(string); ok {
 		return uid
@@ -44,6 +46,13 @@ func getUserID(ctx context.Context) string {
 func getUsername(ctx context.Context) string {
 	if username, ok := ctx.Value(ctxKeyUsername{}).(string); ok {
 		return username
+	}
+	return ""
+}
+
+func getBearerToken(ctx context.Context) string {
+	if token, ok := ctx.Value(ctxKeyBearerToken{}).(string); ok {
+		return token
 	}
 	return ""
 }
@@ -83,6 +92,7 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			token := parts[1]
 			valid := false
 			userID := ""
+			username := ""
 
 			// Try static tokens first (backward compat)
 			for _, t := range cfg.AuthTokens {
@@ -96,11 +106,17 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			// Try JWT validation
 			if !valid && cfg.JWTSecret != "" {
 				var jwtOK bool
-				userID, jwtOK = validateJWT(token, cfg.JWTSecret, cfg.JWTExpectedAudience, cfg.JWTExpectedIssuer)
+				var jwtUsername string
+				userID, jwtUsername, jwtOK = validateJWT(token, cfg.JWTSecret, cfg.JWTExpectedAudience, cfg.JWTExpectedIssuer)
 				valid = jwtOK
+				if jwtOK {
+					username = jwtUsername
+				}
 			}
 
-			username := ""
+			if valid && userID == "" {
+				valid = false
+			}
 			if !valid && strings.HasPrefix(token, "br_sk_") {
 				record, lookupErr := opaqueTokens.lookup(r.Context(), token)
 				if lookupErr != nil {
@@ -124,6 +140,7 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), ctxKeyUserID{}, userID)
 			ctx = context.WithValue(ctx, ctxKeyUsername{}, username)
+			ctx = context.WithValue(ctx, ctxKeyBearerToken{}, token)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -148,10 +165,15 @@ func requestLogger(next http.Handler) http.Handler {
 
 type responseWriter struct {
 	http.ResponseWriter
-	status int
+	status      int
+	wroteHeader bool
 }
 
 func (w *responseWriter) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -187,8 +209,9 @@ type rateLimiter struct {
 	buckets  map[string]*bucket
 	capacity float64
 	// tokens refilled per second = capacity / windowSeconds
-	rate float64
-	done chan struct{}
+	rate              float64
+	done              chan struct{}
+	trustProxyHeaders bool
 }
 
 type bucket struct {
@@ -196,7 +219,7 @@ type bucket struct {
 	lastRefill time.Time
 }
 
-func newRateLimiter(capacity int, windowSeconds int) *rateLimiter {
+func newRateLimiter(capacity int, windowSeconds int, trustProxyHeaders bool) *rateLimiter {
 	if capacity < 1 {
 		capacity = 1
 	}
@@ -204,10 +227,11 @@ func newRateLimiter(capacity int, windowSeconds int) *rateLimiter {
 		windowSeconds = 1
 	}
 	rl := &rateLimiter{
-		buckets:  make(map[string]*bucket),
-		capacity: float64(capacity),
-		rate:     float64(capacity) / float64(windowSeconds),
-		done:     make(chan struct{}),
+		buckets:           make(map[string]*bucket),
+		capacity:          float64(capacity),
+		rate:              float64(capacity) / float64(windowSeconds),
+		done:              make(chan struct{}),
+		trustProxyHeaders: trustProxyHeaders,
 	}
 	go rl.cleanup()
 	return rl
@@ -228,7 +252,7 @@ func (rl *rateLimiter) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ip := clientIP(r)
+		ip := clientIP(r, rl.trustProxyHeaders)
 		if !rl.allow(ip) {
 			w.Header().Set("Retry-After", "1")
 			Error(w, http.StatusTooManyRequests, "rate limit exceeded")
@@ -248,16 +272,18 @@ func shouldRateLimit(path string) bool {
 	return strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/tunnel/")
 }
 
-func clientIP(r *http.Request) string {
+func clientIP(r *http.Request, trustProxyHeaders bool) string {
 	// Prefer real client behind Coolify/Traefik/Cloudflare
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ip := strings.TrimSpace(strings.Split(xff, ",")[0])
-		if ip != "" {
-			return stripPort(ip)
+	if trustProxyHeaders {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			ip := strings.TrimSpace(strings.Split(xff, ",")[0])
+			if ip != "" {
+				return stripPort(ip)
+			}
 		}
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return stripPort(strings.TrimSpace(xri))
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			return stripPort(strings.TrimSpace(xri))
+		}
 	}
 	return stripPort(r.RemoteAddr)
 }

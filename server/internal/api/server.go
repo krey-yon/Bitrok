@@ -16,69 +16,30 @@ import (
 	"github.com/bitrok/bitrok/server/internal/store"
 )
 
-// uptimeChecker runs a background health-check loop.
-func startUptimeChecker(st store.Store, port int, useTLS bool) (stop func()) {
-	ticker := time.NewTicker(30 * time.Second)
+// startMaintenance bounds persisted request-log growth without tying cleanup
+// to request traffic.
+func startMaintenance(st store.Store, logRetention time.Duration) (stop func()) {
+	ticker := time.NewTicker(1 * time.Hour)
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	client := &http.Client{Timeout: 5 * time.Second}
-	scheme := "http"
-	if useTLS {
-		scheme = "https"
-	}
-	url := fmt.Sprintf("%s://127.0.0.1:%d/health", scheme, port)
-
-	check := func() {
-		start := time.Now()
-		resp, err := client.Get(url)
-		latencyMs := int(time.Since(start).Milliseconds())
-		status := 0
-		errMsg := ""
-		if err != nil {
-			errMsg = err.Error()
-			latencyMs = 0
-		} else {
-			status = resp.StatusCode
-			resp.Body.Close()
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	cleanup := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := st.LogUptimeCheck(ctx, status, latencyMs, errMsg); err != nil {
-			slog.Warn("uptime check log failed", "error", err)
+		if err := st.CleanupTunnelLogs(ctx, logRetention); err != nil {
+			slog.Warn("tunnel log cleanup failed", "error", err)
 		}
 	}
+	cleanup()
 
-	// Run immediately, then on ticker
-	check()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for {
 			select {
 			case <-ticker.C:
-				check()
+				cleanup()
 			case <-done:
 				ticker.Stop()
-				return
-			}
-		}
-	}()
-
-	// Cleanup goroutine: delete old checks every hour
-	cleanupTicker := time.NewTicker(1 * time.Hour)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-cleanupTicker.C:
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				if err := st.CleanupUptimeChecks(ctx, 24*time.Hour); err != nil {
-					slog.Warn("uptime cleanup failed", "error", err)
-				}
-				cancel()
-			case <-done:
-				cleanupTicker.Stop()
 				return
 			}
 		}
@@ -109,8 +70,8 @@ func Run(cfg *config.Config) error {
 	hub := relay.NewHub()
 	router, rateLimiter := NewRouter(cfg, st, hub)
 
-	stopUptime := startUptimeChecker(st, cfg.Port, cfg.TLSCertPath != "" && cfg.TLSKeyPath != "")
-	defer stopUptime()
+	stopMaintenance := startMaintenance(st, time.Duration(cfg.LogRetentionHours)*time.Hour)
+	defer stopMaintenance()
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -138,6 +99,7 @@ func Run(cfg *config.Config) error {
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
 
 	select {
 	case err := <-errCh:

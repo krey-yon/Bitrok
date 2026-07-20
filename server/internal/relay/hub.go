@@ -13,6 +13,7 @@ type Session struct {
 	Conn         *websocket.Conn
 	writeMu      sync.Mutex
 	writeTimeout time.Duration
+	requests     chan struct{}
 }
 
 // NewSession constructs a tunnel session with the given write timeout.
@@ -21,7 +22,29 @@ func NewSession(tunnelID string, conn *websocket.Conn, writeTimeout time.Duratio
 		TunnelID:     tunnelID,
 		Conn:         conn,
 		writeTimeout: writeTimeout,
+		requests:     make(chan struct{}, 50),
 	}
+}
+
+// Close terminates the underlying tunnel connection.
+func (s *Session) Close() error {
+	return s.Conn.Close()
+}
+
+// TryAcquireRequest bounds the number of public HTTP handlers waiting on one
+// tunnel. The CLI has the same cap, but enforcing it here prevents unbounded
+// server goroutines before a request reaches the client.
+func (s *Session) TryAcquireRequest() bool {
+	select {
+	case s.requests <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Session) ReleaseRequest() {
+	<-s.requests
 }
 
 // WriteJSON serializes writes to the underlying WebSocket and resets the write
@@ -53,8 +76,12 @@ func NewHub() *Hub {
 // Register adds a session to the hub.
 func (h *Hub) Register(s *Session) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	previous := h.sessions[s.TunnelID]
 	h.sessions[s.TunnelID] = s
+	h.mu.Unlock()
+	if previous != nil && previous != s {
+		_ = previous.Close()
+	}
 }
 
 // Unregister removes a session only if it is the currently registered one.

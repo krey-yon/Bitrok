@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -77,10 +76,14 @@ func WSConnectHandler(cfg *config.Config, st store.Store, hub *relay.Hub) http.H
 			_ = conn.WriteJSON(protocol.Message{Type: "error", Error: "expected hello frame"})
 			return
 		}
+		if hello.TunnelID != id {
+			_ = conn.WriteJSON(protocol.Message{Type: "error", Error: "tunnel id mismatch"})
+			return
+		}
 
 		// Defense in depth: the hello token must match the already-authenticated
 		// bearer token used for the WebSocket upgrade.
-		headerToken := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		headerToken := getBearerToken(r.Context())
 		if subtle.ConstantTimeCompare([]byte(headerToken), []byte(hello.Token)) != 1 {
 			slog.Warn("invalid token in hello frame", "tunnel_id", id)
 			_ = conn.WriteJSON(protocol.Message{Type: "error", Error: "unauthorized"})
@@ -124,7 +127,7 @@ func WSConnectHandler(cfg *config.Config, st store.Store, hub *relay.Hub) http.H
 					if err := json.Unmarshal(data, &resp); err != nil {
 						continue
 					}
-					relay.HandleResponse(resp)
+					relay.HandleResponse(id, resp)
 				}
 			}
 		}()

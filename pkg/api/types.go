@@ -68,28 +68,3 @@ type LogListResponse struct {
 	Total int         `json:"total"`
 	Logs  []TunnelLog `json:"logs"`
 }
-
-// UptimeCheck records a single health-check result.
-type UptimeCheck struct {
-	TS         time.Time `json:"ts"`
-	Status     int       `json:"status"`
-	LatencyMs  int       `json:"latency_ms"`
-	Error      string    `json:"error,omitempty"`
-}
-
-// UptimeBucket aggregates checks into a time window.
-type UptimeBucket struct {
-	Hour            time.Time `json:"hour"`
-	Checks          int       `json:"checks"`
-	Up              int       `json:"up"`
-	Down            int       `json:"down"`
-	AvgLatencyMs    int       `json:"avg_latency_ms"`
-	UptimePercent   float64   `json:"uptime_percent"`
-}
-
-// UptimeResponse is returned by GET /api/uptime.
-type UptimeResponse struct {
-	WindowHours          int            `json:"window_hours"`
-	OverallUptimePercent float64        `json:"overall_uptime_percent"`
-	Buckets              []UptimeBucket `json:"buckets"`
-}

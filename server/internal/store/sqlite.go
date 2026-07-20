@@ -6,13 +6,14 @@ import (
 	"database/sql"
 	_ "embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 
 	"github.com/bitrok/bitrok/pkg/api"
 )
@@ -25,6 +26,12 @@ var migration002 string
 
 //go:embed migrations/003_auth.sql
 var migration003 string
+
+//go:embed migrations/004_tunnel_name_scope.sql
+var migration004 string
+
+//go:embed migrations/005_drop_self_uptime.sql
+var migration005 string
 
 // SQLite implements Store using SQLite.
 type SQLite struct {
@@ -41,16 +48,17 @@ func NewSQLite(dbPath string, maxOpenConns, maxIdleConns int, connMaxLifetime, c
 		}
 	}
 
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&_journal_mode=WAL")
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
-	// Lock down permissions before first use
-	if err := os.Chmod(dbPath, 0600); err != nil && !os.IsNotExist(err) {
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
-		return nil, err
+	if err := os.Chmod(dbPath, 0600); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("secure database permissions: %w", err)
 	}
 	// SQLite serializes writes; keep pool small
 	db.SetMaxOpenConns(maxOpenConns)
@@ -60,6 +68,7 @@ func NewSQLite(dbPath string, maxOpenConns, maxIdleConns int, connMaxLifetime, c
 
 	s := &SQLite{db: db}
 	if err := s.migrate(); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	return s, nil
@@ -77,6 +86,8 @@ func (s *SQLite) migrate() error {
 		{1, migration001},
 		{2, migration002},
 		{3, migration003},
+		{4, migration004},
+		{5, migration005},
 	}
 
 	for _, m := range migrations {
@@ -89,11 +100,20 @@ func (s *SQLite) migrate() error {
 			return fmt.Errorf("check migration %d: %w", m.version, err)
 		}
 
-		if _, err := s.db.Exec(m.sql); err != nil {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return fmt.Errorf("begin migration %d: %w", m.version, err)
+		}
+		if _, err := tx.Exec(m.sql); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("exec migration %d: %w", m.version, err)
 		}
-		if _, err := s.db.Exec(`INSERT INTO schema_migrations (version) VALUES (?)`, m.version); err != nil {
+		if _, err := tx.Exec(`INSERT INTO schema_migrations (version) VALUES (?)`, m.version); err != nil {
+			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", m.version, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit migration %d: %w", m.version, err)
 		}
 	}
 	return nil
@@ -119,7 +139,7 @@ func (s *SQLite) CreateTunnel(ctx context.Context, userID, name, host string, po
 		id, userID, name, host, port, now, now,
 	)
 	if err != nil {
-		return nil, err
+		return nil, classifyWriteError(err)
 	}
 	return s.GetTunnel(ctx, userID, id)
 }
@@ -212,20 +232,30 @@ func (s *SQLite) UpdateTunnel(ctx context.Context, userID, id string, name, host
 	args = append(args, time.Now().UTC(), id, userID)
 	query := "UPDATE tunnels SET " + strings.Join(sets, ", ") + ", updated_at = ? WHERE id = ? AND user_id = ?"
 	if _, err := s.db.ExecContext(ctx, query, args...); err != nil {
-		return nil, err
+		return nil, classifyWriteError(err)
 	}
 	return s.GetTunnel(ctx, userID, id)
 }
 
 // DeleteTunnel removes a tunnel and its logs scoped to a user.
 func (s *SQLite) DeleteTunnel(ctx context.Context, userID, id string) error {
-	// Explicitly delete logs first for compatibility with databases created
-	// before the ON DELETE CASCADE migration.
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM tunnel_logs WHERE tunnel_id = ?`, id); err != nil {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	_, err := s.db.ExecContext(ctx, `DELETE FROM tunnels WHERE id = ? AND user_id = ?`, id, userID)
-	return err
+	defer tx.Rollback()
+
+	// Scope the compatibility cleanup through the owned tunnel row. This keeps
+	// the store invariant safe even when called outside the HTTP handler.
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM tunnel_logs
+		WHERE tunnel_id IN (SELECT id FROM tunnels WHERE id = ? AND user_id = ?)`, id, userID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tunnels WHERE id = ? AND user_id = ?`, id, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // LogRequest records a proxied request.
@@ -283,53 +313,28 @@ func (s *SQLite) ListLogs(ctx context.Context, userID string, limit int) (*api.L
 	return &api.LogListResponse{Total: total, Logs: logs}, nil
 }
 
+// CleanupTunnelLogs bounds disk usage by deleting request logs older than the
+// configured retention window.
+func (s *SQLite) CleanupTunnelLogs(ctx context.Context, window time.Duration) error {
+	cutoff := time.Now().UTC().Add(-window)
+	_, err := s.db.ExecContext(ctx, `DELETE FROM tunnel_logs WHERE ts < ?`, cutoff)
+	return err
+}
+
 // Ping checks database connectivity.
 func (s *SQLite) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
-// LogUptimeCheck records a health-check result.
-func (s *SQLite) LogUptimeCheck(ctx context.Context, status, latencyMs int, errMsg string) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO uptime_checks (status, latency_ms, error) VALUES (?, ?, ?)`,
-		status, latencyMs, errMsg,
-	)
-	return err
-}
-
-// GetUptimeHistory returns raw checks within the given window.
-func (s *SQLite) GetUptimeHistory(ctx context.Context, window time.Duration) ([]api.UptimeCheck, error) {
-	since := time.Now().UTC().Add(-window)
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT ts, status, latency_ms, error FROM uptime_checks WHERE ts > ? ORDER BY ts ASC`, since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []api.UptimeCheck
-	for rows.Next() {
-		var c api.UptimeCheck
-		var errStr sql.NullString
-		if err := rows.Scan(&c.TS, &c.Status, &c.LatencyMs, &errStr); err != nil {
-			return nil, err
-		}
-		if errStr.Valid {
-			c.Error = errStr.String
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
-// CleanupUptimeChecks deletes checks older than the retention window.
-func (s *SQLite) CleanupUptimeChecks(ctx context.Context, window time.Duration) error {
-	cutoff := time.Now().UTC().Add(-window)
-	_, err := s.db.ExecContext(ctx, `DELETE FROM uptime_checks WHERE ts < ?`, cutoff)
-	return err
-}
-
 // Close closes the underlying database.
 func (s *SQLite) Close() error {
 	return s.db.Close()
+}
+
+func classifyWriteError(err error) error {
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) && sqliteErr.Code == sqlite3.ErrConstraint {
+		return fmt.Errorf("%w: %v", ErrConflict, err)
+	}
+	return err
 }

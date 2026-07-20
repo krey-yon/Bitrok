@@ -1,5 +1,13 @@
 package protocol
 
+const (
+	// MaxBodyBytes is the largest buffered HTTP request or response body carried
+	// by the current JSON/base64 relay protocol.
+	MaxBodyBytes = 10 * 1024 * 1024
+	// MaxMessageBytes leaves room for base64 expansion and bounded HTTP headers.
+	MaxMessageBytes = 16 * 1024 * 1024
+)
+
 // MessageType defines the kind of WebSocket frame exchanged between CLI and server.
 type MessageType string
 
@@ -28,9 +36,9 @@ type Message struct {
 
 // Hello is sent by the CLI immediately after the WebSocket upgrade.
 type Hello struct {
-	Type      string `json:"type"`
-	Token     string `json:"token"`
-	TunnelID  string `json:"tunnel_id"`
+	Type     string `json:"type"`
+	Token    string `json:"token"`
+	TunnelID string `json:"tunnel_id"`
 }
 
 // ProxyRequest is sent by the server when an HTTP request arrives for a tunnel.

@@ -2,10 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/bitrok/bitrok/pkg/api"
 )
+
+var ErrConflict = errors.New("store conflict")
 
 // Store defines persistence operations for tunnels and logs.
 type Store interface {
@@ -19,10 +22,7 @@ type Store interface {
 
 	LogRequest(ctx context.Context, tunnelID, method, path string, status, latencyMs, bytesIn, bytesOut int) error
 	ListLogs(ctx context.Context, userID string, limit int) (*api.LogListResponse, error)
+	CleanupTunnelLogs(ctx context.Context, window time.Duration) error
 
 	Ping(ctx context.Context) error
-
-	LogUptimeCheck(ctx context.Context, status, latencyMs int, errMsg string) error
-	GetUptimeHistory(ctx context.Context, window time.Duration) ([]api.UptimeCheck, error)
-	CleanupUptimeChecks(ctx context.Context, window time.Duration) error
 }
