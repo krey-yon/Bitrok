@@ -37,7 +37,7 @@ The Bitrok server is a single Go binary that does three things:
                          │  Hub: tunnelID → *Session                │
                          │  └── session.Conn (gorilla/websocket)    │
                          │                                         │
-                         │  Store: SQLite (tunnels, logs, uptime)  │
+                         │  Store: SQLite (tunnels, retained logs) │
                          └───────────────────┬─────────────────────┘
                                              │ WebSocket
                                              │ (ProxyRequest / ProxyResponse frames)
@@ -206,7 +206,6 @@ SQLite-backed persistence for:
 |---|---|
 | `tunnels` | Tunnel config (name, host, port, user_id) — created via `/api/tunnels` |
 | `tunnel_logs` | Per-request logs (method, path, status, latency, bytes) — shown in dashboard |
-| `uptime_checks` | Background health pings every 30s — used for status page |
 
 The DB file lives at `/data/bitrok.db` (a Docker volume, persists across container restarts).
 
@@ -221,7 +220,7 @@ The DB file lives at `/data/bitrok.db` (a Docker volume, persists across contain
   │  (opens browser)                │                              │
   │─────────────────────────────────────────────────────────────────►│
   │                                 │                       user signs in
-  │                                 │                       (GitHub OAuth / email)
+  │                                 │                       (GitHub OAuth)
   │                                 │                              │
   │                                 │              clicks "Generate CLI Token"
   │                                 │◄──────────────────────────────│
@@ -229,7 +228,8 @@ The DB file lives at `/data/bitrok.db` (a Docker volume, persists across contain
   │                                 │  signs JWT with BITROK_JWT_SECRET
   │                                 │  claims: {sub, email,         │
   │                                 │   aud:"bitrok-cli",           │
-  │                                 │   iss:"bitrok", exp:30d}      │
+  │                                 │   iss:"bitrok", exp:30d,       │
+  │                                 │   username:"you"}               │
   │                                 │──────────────────────────────►│
   │  user pastes token into CLI     │                              │
   │◄──────────────────────────────  │                              │
@@ -271,13 +271,14 @@ The same `BITROK_JWT_SECRET` must be set on **both** the web dashboard and the s
 |---|---|---|
 | `BITROK_PORT` | `8080` | Listen port |
 | `BITROK_LOG_LEVEL` | `info` | `debug` shows tunnel connect/disconnect + forwarded requests |
-| `BITROK_RATE_LIMIT_CAPACITY` | `100` | Max requests per IP per window |
+| `BITROK_RATE_LIMIT_CAPACITY` | `600` | Max control-plane requests per IP per window |
 | `BITROK_RATE_LIMIT_WINDOW` | `60` (sec) | Rate limit window |
-| `BITROK_WS_MAX_MESSAGE_SIZE_MB` | `10` | Max WebSocket frame size |
+| `BITROK_WS_MAX_MESSAGE_SIZE_MB` | `16` | Max WebSocket frame size |
 | `BITROK_WS_HELLO_TIMEOUT_SEC` | `10` | Time to receive Hello frame after upgrade |
 | `BITROK_WS_PING_INTERVAL_SEC` | `30` | Keepalive ping interval |
 | `BITROK_WS_READ_TIMEOUT_SEC` | `60` | Read deadline (resets on each message) |
-| `BITROK_MAX_REQUEST_BODY_BYTES` | `1048576` (1 MB) | Max body for `/api/tunnels` CRUD (proxy body limit is 10 MB, hardcoded) |
+| `BITROK_MAX_REQUEST_BODY_BYTES` | `1048576` (1 MB) | Max body for tunnel CRUD |
+| `BITROK_MAX_TUNNELS_PER_USER` | `25` | Per-account registration quota |
 | `BITROK_ALLOW_INSECURE_WS` | `false` | Skip Origin check entirely (dev only) |
 
 ---
@@ -308,8 +309,12 @@ Body payloads are base64-encoded to safely transport binary over JSON text frame
 - [ ] Domain set to `*.bitrok.tech` (wildcard cert issued)
 - [ ] `BITROK_JWT_SECRET` set (matches web dashboard)
 - [ ] `BITROK_DOMAIN` set to your domain
+- [ ] Exactly one relay replica is running with a persistent `/data` volume
+- [ ] External HTTPS, WebSocket-control, and tunnel monitors are alerting
+- [ ] Encrypted SQLite backup exists and `PRAGMA integrity_check` passed
+- [ ] Encrypted PostgreSQL backup has been restored successfully in an isolated database
 - [ ] Deploy succeeded, logs show `server listening`
 - [ ] `curl https://api.bitrok.tech/health` returns `{"status":"ok"}`
 - [ ] Web dashboard's `BITROK_JWT_SECRET` matches the server's
-- [ ] CLI: `BITROK_SERVER=https://bitrok.tech bitrok login` works
+- [ ] CLI: `BITROK_SERVER=https://api.bitrok.tech bitrok login` works
 - [ ] Tunnel test: `bitrok up` → visit subdomain → traffic reaches localhost
