@@ -45,7 +45,7 @@ export default function Home() {
               <p className="hero-copy mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground animate-slide-up [animation-delay:80ms] sm:text-lg sm:leading-8">
                 Give a local API, webhook receiver, or demo backend one permanent public URL. Set it in Vercel once, then run your service from your laptop whenever you need it.
               </p>
-              <div className="hero-actions mt-7 max-w-2xl animate-slide-up [animation-delay:140ms]">
+              <div className="hero-actions mt-7 max-w-sm animate-slide-up [animation-delay:140ms]">
                 <InstallCommand label="macOS / Linux" command={INSTALL_CMD} prompt="$" featured />
               </div>
               <div className="hero-benefits mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
