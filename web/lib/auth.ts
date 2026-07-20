@@ -45,7 +45,6 @@ export const auth = betterAuth({
     github: {
       clientId: requireEnv("GITHUB_CLIENT_ID"),
       clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
-      scope: ["read:user", "user:email"],
       getUserInfo: async (token) => {
         if (!token.accessToken) return null;
         return fetchVerifiedGithubIdentity(token.accessToken);

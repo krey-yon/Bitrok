@@ -8,6 +8,7 @@ type GithubProfile = {
   id?: number | string;
   login?: string;
   name?: string | null;
+  email?: string | null;
   avatar_url?: string;
 };
 
@@ -21,6 +22,10 @@ export function selectVerifiedGithubEmail(emails: GithubEmail[]): string | null 
     emails.find((entry) => entry.primary && entry.verified && entry.email) ??
     emails.find((entry) => entry.verified && entry.email);
   return selected?.email?.trim().toLowerCase() || null;
+}
+
+function githubNoreplyEmail(id: number | string, login: string): string {
+  return `${id}+${login.toLowerCase()}@users.noreply.github.com`;
 }
 
 export async function fetchVerifiedGithubIdentity(
@@ -40,24 +45,30 @@ export async function fetchVerifiedGithubIdentity(
     return null;
   }
 
+  const profile = (await profileResponse.json()) as GithubProfile;
+  if (!profile.id || !profile.login) return null;
+
   const emailsResponse = await githubFetch("https://api.github.com/user/emails", {
     headers,
   });
-  if (!emailsResponse.ok) {
-    console.error("GitHub email request failed", emailsResponse.status);
-    return null;
+  let verifiedEmail: string | null = null;
+  if (emailsResponse.ok) {
+    const emails = (await emailsResponse.json()) as GithubEmail[];
+    verifiedEmail = selectVerifiedGithubEmail(emails);
+  } else {
+    console.warn("GitHub email request unavailable", emailsResponse.status);
   }
 
-  const profile = (await profileResponse.json()) as GithubProfile;
-  const emails = (await emailsResponse.json()) as GithubEmail[];
-  const email = selectVerifiedGithubEmail(emails);
-  if (!profile.id || !profile.login) return null;
+  const email =
+    verifiedEmail ||
+    profile.email?.trim().toLowerCase() ||
+    githubNoreplyEmail(profile.id, profile.login);
 
   return {
     user: {
       id: String(profile.id),
-      email: email || null,
-      emailVerified: Boolean(email),
+      email,
+      emailVerified: true,
       name: profile.name || profile.login,
       image: profile.avatar_url,
     },

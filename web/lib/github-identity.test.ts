@@ -56,7 +56,7 @@ test("fetches GitHub identity with required API headers", async () => {
   }
 });
 
-test("preserves a valid profile when no verified email is available", async () => {
+test("uses a stable GitHub noreply address when no verified email is available", async () => {
   const githubFetch = async (
     input: string | URL | Request,
   ): Promise<Response> => {
@@ -68,6 +68,25 @@ test("preserves a valid profile when no verified email is available", async () =
 
   const identity = await fetchVerifiedGithubIdentity("oauth-token", githubFetch);
   assert.equal(identity?.user.id, "42");
-  assert.equal(identity?.user.email, null);
-  assert.equal(identity?.user.emailVerified, false);
+  assert.equal(identity?.user.email, "42+verified-user@users.noreply.github.com");
+  assert.equal(identity?.user.emailVerified, true);
+});
+
+test("preserves a valid profile when the GitHub email endpoint is unavailable", async () => {
+  const githubFetch = async (
+    input: string | URL | Request,
+  ): Promise<Response> => {
+    if (String(input).endsWith("/emails")) {
+      return new Response(JSON.stringify({ message: "Resource not accessible" }), {
+        status: 403,
+      });
+    }
+    return new Response(JSON.stringify({ id: 42, login: "verified-user" }), {
+      status: 200,
+    });
+  };
+
+  const identity = await fetchVerifiedGithubIdentity("oauth-token", githubFetch);
+  assert.equal(identity?.user.email, "42+verified-user@users.noreply.github.com");
+  assert.equal(identity?.user.emailVerified, true);
 });
