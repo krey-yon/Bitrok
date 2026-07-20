@@ -9,6 +9,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { GitHubMark } from "@/components/ui/github-mark";
 
 const INSTALL_CMD = "curl -fsSL bitrok.tech/install | sh";
+const INSTALL_WINDOWS_CMD = "irm https://bitrok.tech/install.ps1 | iex";
 const GITHUB_URL = "https://github.com/krey-yon/Bitrok";
 const X_URL = "https://x.com/Krey_yon";
 const LINKEDIN_URL = "https://www.linkedin.com/in/vikas387/";
@@ -132,13 +133,17 @@ export default function Home() {
 
         <section className="relative overflow-hidden border-t border-hairline">
           <div className="absolute inset-0 bg-grid opacity-60" aria-hidden /><div className="absolute inset-0 bg-noise" aria-hidden />
-          <div className="section-shell relative py-24 text-center sm:py-32"><Sparkles className="mx-auto size-7 text-secondary" aria-hidden /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 flex max-w-lg items-center gap-2 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"><span className="font-mono text-xs text-muted-foreground">$</span><code className="min-w-0 flex-1 truncate font-mono text-xs sm:text-sm">{INSTALL_CMD}</code><CopyButton text={INSTALL_CMD} /></div></div>
+          <div className="section-shell relative py-24 text-center sm:py-32"><Sparkles className="mx-auto size-7 text-secondary" aria-hidden /><h2 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1] tracking-[-.05em] sm:text-6xl">Make your local backend feel permanent.</h2><p className="mx-auto mt-6 max-w-xl text-pretty text-lg text-muted-foreground">Claim the endpoint your frontend can depend on.</p><div className="mt-9 flex justify-center"><Link href="/register" className={buttonClassName({ variant: "accent", size: "lg" })}>Get Started <ArrowRight className="size-4" aria-hidden /></Link></div><div className="mx-auto mt-8 grid max-w-2xl gap-2 sm:grid-cols-2"><InstallCommand label="macOS / Linux" command={INSTALL_CMD} prompt="$" /><InstallCommand label="Windows PowerShell" command={INSTALL_WINDOWS_CMD} prompt=">" /></div></div>
         </section>
       </main>
 
       <footer className="border-t border-hairline bg-card/40"><div className="section-shell flex flex-col gap-8 py-10 sm:flex-row sm:items-end sm:justify-between"><div><Logo className="text-lg" /><p className="mt-3 max-w-sm text-sm text-muted-foreground">Deterministic tunnels for backends that live wherever you do.</p></div><div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground"><Link href={GITHUB_URL} className="inline-flex items-center gap-1.5 hover:text-foreground"><GitHubMark className="size-3.5" />krey-yon</Link><a href={X_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">X / Twitter</a><a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground">LinkedIn<ExternalLink className="size-3" aria-hidden /></a><Link href="/privacy" className="hover:text-foreground">Privacy</Link><Link href="/security" className="hover:text-foreground">Security</Link><span>© 2026 Bitrok</span></div></div></footer>
     </div>
   );
+}
+
+function InstallCommand({ label, command, prompt }: { label: string; command: string; prompt: string }) {
+  return <div className="min-w-0 rounded-lg border border-hairline bg-card/80 p-1.5 pl-4 text-left"><div className="mb-1 font-mono text-[10px] uppercase tracking-[.12em] text-muted-foreground">{label}</div><div className="flex min-w-0 items-center gap-2"><span className="font-mono text-xs text-muted-foreground">{prompt}</span><code className="min-w-0 flex-1 truncate font-mono text-xs">{command}</code><CopyButton text={command} /></div></div>;
 }
 
 const TRUST_ITEMS = [

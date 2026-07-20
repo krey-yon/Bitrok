@@ -241,7 +241,7 @@ func (rl *rateLimiter) Middleware(next http.Handler) http.Handler {
 // shouldRateLimit reports whether path is control-plane (CRUD / WS connect).
 // Visitor traffic to tunnel hosts is path like / or /app.js — not rate limited.
 func shouldRateLimit(path string) bool {
-	if path == "/health" || path == "/install" || strings.HasPrefix(path, "/.well-known/") {
+	if path == "/health" || path == "/install" || path == "/install.ps1" || strings.HasPrefix(path, "/.well-known/") {
 		return false
 	}
 	// Control plane only
