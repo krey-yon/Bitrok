@@ -58,4 +58,4 @@ See [docs/server-architecture.md](docs/server-architecture.md) for protocol deta
 
 ## License
 
-See the repository license file before distributing the software.
+Apache 2.0. See [LICENSE](LICENSE).
