@@ -1,0 +1,78 @@
+{
+    "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+    "version": "v1.1.0",
+    "entity": {
+        "type": "individual",
+        "role": "maintainer",
+        "name": "Vikas Kumar",
+        "email": "vikaskumar783588@gmail.com",
+        "description": "Solo maintainer building Bitrok — a self-hosted ngrok alternative. I work on the Go relay server, Go CLI, and Next.js dashboard in my spare time.",
+        "webpageUrl": {
+            "url": "https://bitrok.tech",
+            "wellKnown": ""
+        }
+    },
+    "projects": [
+        {
+            "guid": "bitrok",
+            "name": "Bitrok",
+            "description": "Self-hosted HTTP tunnel relay. Go server with SQLite, Go CLI with Bubbletea TUI, and Next.js dashboard. Users expose local services through a wildcard domain without paying ngrok subscription fees or sending traffic through a third party.",
+            "webpageUrl": {
+                "url": "https://bitrok.tech"
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/krey-yon/bitrok",
+                "wellKnown": "https://github.com/krey-yon/bitrok/blob/main/.well-known/funding-manifest-urls"
+            },
+            "licenses": ["spdx:MIT"],
+            "tags": [
+                "reverse-proxy",
+                "tunneling",
+                "go",
+                "developer-tools",
+                "self-hosted",
+                "networking",
+                "cli",
+                "devops"
+            ]
+        }
+    ],
+    "funding": {
+        "channels": [
+            {
+                "guid": "bank-transfer",
+                "type": "bank",
+                "address": "",
+                "description": "Bank transfer (India). Email me for account details."
+            },
+            {
+                "guid": "upi",
+                "type": "payment-provider",
+                "address": "",
+                "description": "UPI payment (India). Email me for UPI ID."
+            }
+        ],
+        "plans": [
+            {
+                "guid": "infra-domain",
+                "status": "active",
+                "name": "Infrastructure & domain — ₹16K",
+                "description": "One year of wildcard *.bitrok.tech domain renewal and a small VPS for the demo relay server. Keeps the public demo running so people can try before self-hosting.",
+                "amount": 16000,
+                "currency": "INR",
+                "frequency": "yearly",
+                "channels": ["bank-transfer", "upi"]
+            },
+            {
+                "guid": "dev-time-stipend",
+                "status": "active",
+                "name": "3-month part-time development stipend — ₹1.2L",
+                "description": "Covers ~15 hours/week for 3 months to ship: (1) CLI down/teardown with remote stop, (2) tunnel logs and SSE streaming, (3) inspect traffic capture, (4) ad-hoc up without pre-creating tunnels. These are the gaps between Bitrok and ngrok's free tier.",
+                "amount": 120000,
+                "currency": "INR",
+                "frequency": "one-time",
+                "channels": ["bank-transfer", "upi"]
+            }
+        ]
+    }
+}
