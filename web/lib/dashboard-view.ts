@@ -17,11 +17,13 @@ export function dashboardView(
   tunnelsResult: PromiseSettledResult<TunnelDTO[]>,
   logsResult: PromiseSettledResult<LogsResponse>,
 ): DashboardView {
-  if (tunnelsResult.status === "rejected") {
+  const tunnelsUnreachable = tunnelsResult.status === "rejected";
+  if (tunnelsUnreachable) {
     return { kind: "relay-down", username };
   }
 
-  if (tunnelsResult.value.length === 0) {
+  const hasNoTunnels = tunnelsResult.value.length === 0;
+  if (hasNoTunnels) {
     return { kind: "first-run", username };
   }
 
