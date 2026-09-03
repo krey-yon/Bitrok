@@ -140,14 +140,12 @@ export default function RootLayout({
           <a href="#main-content" className="skip-link">Skip to content</a>
           {children}
         </ThemeProvider>
-        {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
-          <Script
-            defer
-            src={`${process.env.NEXT_PUBLIC_UMAMI_DOMAIN || "https://cloud.umami.is"}/script.js`}
-            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
-            strategy="lazyOnload"
-          />
-        )}
+        <Script
+          defer
+          src="https://analytics.kreyon.in/script.js"
+          data-website-id="e6927a0e-f4cb-45c6-8024-3fd9bacfc20a"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );
